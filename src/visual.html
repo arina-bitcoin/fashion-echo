@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ВторойШанс - Социальный сервис для осознанного потребления</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <h1>ВторойШанс</h1>
+                    <span>Социальный сервис для осознанного потребления</span>
+                </div>
+                
+                <nav class="nav">
+                    <a href="#listings" class="nav-link">Объявления</a>
+                    <a href="#shops" class="nav-link">Секонд-хенды</a>
+                    <a href="#about" class="nav-link">О проекте</a>
+                </nav>
+                
+                <div class="auth-buttons">
+                    <button class="btn btn-secondary">Войти</button>
+                    <button class="btn btn-primary">Регистрация</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h2 class="hero-title">Вещам — второй шанс, людям — помощь</h2>
+                <p class="hero-subtitle">Бесплатная площадка для продажи, обмена и безвозмездной передачи вещей</p>
+                
+                <div class="hero-features">
+                    <div class="feature">
+                        <span class="feature-icon">🎁</span>
+                        <span>Отдам даром</span>
+                    </div>
+                    <div class="feature">
+                        <span class="feature-icon">💰</span>
+                        <span>Недорогая продажа</span>
+                    </div>
+                    <div class="feature">
+                        <span class="feature-icon">🔄</span>
+                        <span>Обмен вещами</span>
+                    </div>
+                    <div class="feature">
+                        <span class="feature-icon">🏪</span>
+                        <span>Карта секонд-хендов</span>
+                    </div>
+                </div>
+                
+                <div class="hero-actions">
+                    <button class="btn btn-large btn-primary">Разместить объявление</button>
+                    <button class="btn btn-large btn-secondary">Найти вещи</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="how-it-works">
+        <div class="container">
+            <h2 class="section-title">Как это работает</h2>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h3>Создайте объявление</h3>
+                    <p>Бесплатно разместите объявление о продаже, обмене или безвозмездной передаче вещей</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h3>Найдите нужное</h3>
+                    <p>Ищите вещи по карте, категориям или рядом с вами. Смотрите объявления и магазины</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h3>Свяжитесь напрямую</h3>
+                    <p>Договаривайтесь о встрече или самовывозе. Никаких комиссий и посредников</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Listings Section -->
+    <section id="listings" class="listings">
+        <div class="container">
+            <h2 class="section-title">Свежие объявления</h2>
+            
+            <div class="filters">
+                <select class="filter-select">
+                    <option>Все категории</option>
+                    <option>Одежда</option>
+                    <option>Обувь</option>
+                    <option>Электроника</option>
+                    <option>Книги</option>
+                    <option>Детские вещи</option>
+                </select>
+                
+                <select class="filter-select">
+                    <option>Все типы</option>
+                    <option>Продажа</option>
+                    <option>Отдам даром</option>
+                    <option>Обмен</option>
+                    <option>Ищу</option>
+                </select>
+                
+                <button class="btn btn-outline">На карте</button>
+            </div>
+            
+            <div class="listings-grid">
+                <!-- Listing Card 1 -->
+                <div class="listing-card">
+                    <div class="listing-badge listing-badge-donate">Отдам даром</div>
+                    <img src="https://via.placeholder.com/300x200" alt="Детская куртка" class="listing-image">
+                    <div class="listing-content">
+                        <h3 class="listing-title">Детская куртка, размер 110</h3>
+                        <p class="listing-description">Отличное состояние, носили один сезон</p>
+                        <div class="listing-meta">
+                            <span class="listing-category">Детские вещи</span>
+                            <span class="listing-location">📍 Москва, ЦАО</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Listing Card 2 -->
+                <div class="listing-card">
+                    <div class="listing-badge listing-badge-sale">500 ₽</div>
+                    <img src="https://via.placeholder.com/300x200" alt="Книги" class="listing-image">
+                    <div class="listing-content">
+                        <h3 class="listing-title">Коллекция книг по программированию</h3>
+                        <p class="listing-description">10 книг в хорошем состоянии</p>
+                        <div class="listing-meta">
+                            <span class="listing-category">Книги</span>
+                            <span class="listing-location">📍 Санкт-Петербург</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Listing Card 3 -->
+                <div class="listing-card">
+                    <div class="listing-badge listing-badge-exchange">Обмен</div>
+                    <img src="https://via.placeholder.com/300x200" alt="Настольная лампа" class="listing-image">
+                    <div class="listing-content">
+                        <h3 class="listing-title">Настольная лампа IKEA</h3>
+                        <p class="listing-description">Рабочая, поменяю на комнатное растение</p>
+                        <div class="listing-meta">
+                            <span class="listing-category">Дом и сад</span>
+                            <span class="listing-location">📍 Казань</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- More listings... -->
+            </div>
+            
+            <div class="listings-actions">
+                <button class="btn btn-primary">Показать все объявления</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Shops Map Section -->
+    <section id="shops" class="shops">
+        <div class="container">
+            <h2 class="section-title">Секонд-хенды на карте</h2>
+            <div class="map-container">
+                <div class="map-placeholder">
+                    <div class="map-overlay">
+                        <h3>Интерактивная карта</h3>
+                        <p>Найдите секонд-хенды рядом с вами</p>
+                        <button class="btn btn-primary">Открыть карту</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Advantages -->
+    <section class="advantages">
+        <div class="container">
+            <h2 class="section-title">Почему выбирают нас</h2>
+            <div class="advantages-grid">
+                <div class="advantage-card">
+                    <div class="advantage-icon">💸</div>
+                    <h3>Бесплатно</h3>
+                    <p>Никаких платных услуг и комиссий с продаж</p>
+                </div>
+                <div class="advantage-card">
+                    <div class="advantage-icon">🎯</div>
+                    <h3>Простота</h3>
+                    <p>Минималистичный интерфейс без лишних функций</p>
+                </div>
+                <div class="advantage-card">
+                    <div class="advantage-icon">🤝</div>
+                    <h3>Социальная помощь</h3>
+                    <p>Помогаем малоимущим и поддерживаем осознанное потребление</p>
+                </div>
+                <div class="advantage-card">
+                    <div class="advantage-icon">🌱</div>
+                    <h3>Экология</h3>
+                    <p>Снижаем количество отходов, давая вещам вторую жизнь</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>ВторойШанс</h3>
+                    <p>Социальный сервис для осознанного потребления</p>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>Разделы</h4>
+                    <a href="#listings">Объявления</a>
+                    <a href="#shops">Секонд-хенды</a>
+                    <a href="#about">О проекте</a>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>Помощь</h4>
+                    <a href="#">Как разместить объявление</a>
+                    <a href="#">Правила сервиса</a>
+                    <a href="#">Контакты</a>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>Социальные сети</h4>
+                    <a href="#">VKontakte</a>
+                    <a href="#">Telegram</a>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <p>&copy; 2024 ВторойШанс. Социальный проект.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
