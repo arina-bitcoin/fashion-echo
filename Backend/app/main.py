@@ -1,0 +1,38 @@
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+# from Backend.app.core.database import create_db_and_tables
+from Backend.app.config import settings
+from Backend.app.api.api import api_router
+
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     # При запуске: создаем таблицы
+#     await create_db_and_tables()
+#     print("✅ Database tables created successfully")
+#     yield
+#     # При остановке: закрываем соединения
+#     print("🔴 Application shutting down")
+
+import sys
+import os
+
+# Добавляем текущую директорию в путь Python
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+app = FastAPI(
+    title="Fashion Echo API",
+    description="API для покупки, продажи и обмена одежды",
+    version="1.0.0",
+    # lifespan=lifespan,
+    # debug=settings.DEBUG
+)
+
+app.include_router(api_router, prefix="/api")
+
+@app.get("/")
+async def root():
+    return {"message": "Fashion Echo API with SQLite"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "database": "SQLite"}
