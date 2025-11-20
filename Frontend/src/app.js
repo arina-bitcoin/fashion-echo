@@ -58,5 +58,3 @@ function main() {
     setActive('screen-map');
 }
 document.addEventListener('DOMContentLoaded', main);
-
-

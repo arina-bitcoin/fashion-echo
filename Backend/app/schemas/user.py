@@ -21,7 +21,7 @@
 #     class Config:
 #         from_attributes = True
 
-from pydantic import BaseModel, EmailStr, validator
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional
 from datetime import datetime
 
@@ -34,7 +34,7 @@ class UserCreate(UserBase):
     password: str
     full_name: str
     
-    @validator('password')
+    @field_validator('password')
     def password_strength(cls, v):
         if len(v) < 8:
             raise ValueError('Password must be at least 8 characters long')
@@ -56,7 +56,7 @@ class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
     
-    @validator('new_password')
+    @field_validator('new_password')
     def new_password_strength(cls, v):
         if len(v) < 8:
             raise ValueError('New password must be at least 8 characters long')

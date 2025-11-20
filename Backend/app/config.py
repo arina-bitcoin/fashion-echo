@@ -38,7 +38,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # Настройки БД
-    DATABASE_URL: str = "sqlite:///./db/fashion_echo.db"
+    DATABASE_URL: str = "sqlite+aiosqlite:///./db/fashion_eco.db"
     
     # JWT настройки
     SECRET_KEY: str = "your-secret-key-change-in-production"
@@ -47,9 +47,23 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
     # Настройки приложения
-    PROJECT_NAME: str = "Fashion Echo"
+    PROJECT_NAME: str = "Fashion Eco"
     
-    class Config:
-        env_file = ".env"
+    # class Config:
+    #     env_file = ".env"
 
 settings = Settings()
+
+# def get_db():
+#     db = SessionLocal()
+#     try:
+#         yield db
+#     finally:
+#         db.close()
+
+# def get_db_url():
+#     return (f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}@"
+#             f"{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}")
+
+def get_db_url():
+    return settings.DATABASE_URL
