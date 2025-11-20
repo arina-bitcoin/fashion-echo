@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, JSON
 from sqlalchemy.sql import func
 from Backend.app.core.database import Base
 
@@ -14,6 +14,11 @@ class User(Base):
     is_verified = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    "ХЗ ABOUT THAT"
+    phone = Column(String(20), nullable=True)
+    avatar = Column(String(200), nullable=True)  # путь к аватару
+    settings = Column(JSON)  # {'notifications': True, 'theme': 'light'}
+    last_login = Column(DateTime, nullable=True)
 
 # from sqlalchemy import Boolean, String
 # from sqlalchemy.orm import Mapped, mapped_column

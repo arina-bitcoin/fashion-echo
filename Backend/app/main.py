@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 # from Backend.app.core.database import create_db_and_tables
-from Backend.app.config import settings
+# from Backend.app.config import settings
 from Backend.app.api.api import api_router
 
 # @asynccontextmanager
@@ -14,18 +14,32 @@ from Backend.app.api.api import api_router
 #     print("🔴 Application shutting down")
 
 import sys
-import os
+# import os
+from pathlib import Path
 
 # Добавляем текущую директорию в путь Python
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 app = FastAPI(
-    title="Fashion Echo API",
+    title="Fashion Eco API",
     description="API для покупки, продажи и обмена одежды",
     version="1.0.0",
     # lifespan=lifespan,
     # debug=settings.DEBUG
 )
+
+
+# Настройка подключения фронтенда и бэкенда
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # URL вашего фронтенда
+    allow_credentials=True,
+    allow_methods=["*"],  # Разрешить все методы (GET, POST, etc.)
+    allow_headers=["*"],  # Разрешить все заголовки
+)
+
 
 app.include_router(api_router, prefix="/api")
 
@@ -33,6 +47,6 @@ app.include_router(api_router, prefix="/api")
 async def root():
     return {"message": "Fashion Echo API with SQLite"}
 
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy", "database": "SQLite"}
+# @app.get("/fashion-eco")
+# async def health_check():
+#     return {"message": "Glad to see you on your project!"}

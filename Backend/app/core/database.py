@@ -64,24 +64,41 @@
 #     async with engine.begin() as conn:
 #         await conn.run_sync(Base.metadata.drop_all)
 
-from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncAttrs
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+
+""""""
+from sqlalchemy.orm import DeclarativeBase, declared_attr
+
 from Backend.app.config import settings
 
 # Используем синхронный движок SQLAlchemy
-engine = create_engine(
+engine = create_async_engine(
     settings.DATABASE_URL,
     connect_args={"check_same_thread": False},  # Важно для SQLite
     echo=True  # Показывает SQL запросы в консоли (можно убрать)
 )
 
+async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
+
+""""""
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+""""""
 
+class Base(AsyncAttrs, DeclarativeBase):
+    __abstract__ = True
+
+    @declared_attr.directive
+    def __tablename__(cls) -> str:
+        return f"{cls.__name__.lower()}s"
+
+""""""
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+""""""
