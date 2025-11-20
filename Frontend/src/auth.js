@@ -156,6 +156,6 @@ function handleLogin() {
     if (validateLoginForm()) {
         // In a real app, this would send data to a server
         alert('Вход выполнен успешно!');
-        window.location.href = 'main1.html';
+        window.location.href = 'main.html';
     }
 }
