@@ -1,37 +1,16 @@
-// Utility functions with type annotations
-/**
- * Validates email format
- * @param {string} email - Email to validate
- * @returns {boolean} - True if email is valid
- */
+// auth.js - Восстановленная версия
+console.log('✅ auth.js loaded');
+
+// Функции валидации
 function isValidEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
 }
 
-/**
- * Validates phone number (simple validation)
- * @param {string} phone - Phone number to validate
- * @returns {boolean} - True if phone is valid
- */
-function isValidPhone(phone) {
-    return phone.trim().length >= 5;
-}
-
-/**
- * Validates password strength
- * @param {string} password - Password to validate
- * @returns {boolean} - True if password meets requirements
- */
 function isValidPassword(password) {
     return password && password.length >= 6;
 }
 
-/**
- * Sets error state for a form field
- * @param {HTMLElement} field - The form field element
- * @param {boolean} isError - Whether to show error state
- */
 function setFieldError(field, isError) {
     if (field && field.parentElement) {
         if (isError) {
@@ -42,120 +21,152 @@ function setFieldError(field, isError) {
     }
 }
 
-/**
- * Validates registration form
- * @returns {boolean} - True if form is valid
- */
-function validateRegistrationForm() {
-    let isValid = true;
-    
-    // Get form elements
-    const name = document.getElementById('reg-name');
-    const email = document.getElementById('reg-email');
-    const phone = document.getElementById('reg-phone');
-    const password = document.getElementById('reg-pass');
-    const passwordConfirm = document.getElementById('reg-pass-confirm');
-    const terms = document.getElementById('reg-terms');
-    
-    // Validate name
-    if (!name.value.trim()) {
-        setFieldError(name, true);
-        isValid = false;
-    } else {
-        setFieldError(name, false);
+// ВАЖНО: Упрощенная валидация для быстрого тестирования
+function quickValidateForm(formType) {
+    if (formType === 'register') {
+        const name = document.getElementById('reg-name');
+        const email = document.getElementById('reg-email');
+        const password = document.getElementById('reg-pass');
+        
+        if (!name.value.trim()) {
+            alert('Введите имя');
+            return false;
+        }
+        if (!isValidEmail(email.value)) {
+            alert('Введите корректный email');
+            return false;
+        }
+        if (!isValidPassword(password.value)) {
+            alert('Пароль должен быть не менее 6 символов');
+            return false;
+        }
+        return true;
+    } else if (formType === 'login') {
+        const email = document.getElementById('login-email');
+        const password = document.getElementById('login-pass');
+        
+        if (!isValidEmail(email.value)) {
+            alert('Введите корректный email');
+            return false;
+        }
+        if (!password.value) {
+            alert('Введите пароль');
+            return false;
+        }
+        return true;
     }
-    
-    // Validate email
-    if (!isValidEmail(email.value)) {
-        setFieldError(email, true);
-        isValid = false;
-    } else {
-        setFieldError(email, false);
-    }
-    
-    // Validate phone
-    if (!isValidPhone(phone.value)) {
-        setFieldError(phone, true);
-        isValid = false;
-    } else {
-        setFieldError(phone, false);
-    }
-    
-    // Validate password
-    if (!isValidPassword(password.value)) {
-        setFieldError(password, true);
-        isValid = false;
-    } else {
-        setFieldError(password, false);
-    }
-    
-    // Validate password confirmation
-    if (password.value !== passwordConfirm.value) {
-        setFieldError(passwordConfirm, true);
-        isValid = false;
-    } else {
-        setFieldError(passwordConfirm, false);
-    }
-    
-    // Validate terms acceptance
-    if (!terms.checked) {
-        setFieldError(terms, true);
-        isValid = false;
-    } else {
-        setFieldError(terms, false);
-    }
-    
-    return isValid;
+    return false;
 }
 
-/**
- * Validates login form
- * @returns {boolean} - True if form is valid
- */
-function validateLoginForm() {
-    let isValid = true;
-    
-    // Get form elements
-    const email = document.getElementById('login-email');
-    const password = document.getElementById('login-pass');
-    
-    // Validate email
-    if (!isValidEmail(email.value)) {
-        setFieldError(email, true);
-        isValid = false;
-    } else {
-        setFieldError(email, false);
-    }
-    
-    // Validate password
-    if (!password.value) {
-        setFieldError(password, true);
-        isValid = false;
-    } else {
-        setFieldError(password, false);
-    }
-    
-    return isValid;
-}
-
-/**
- * Handles user registration
- */
+// Обработчик регистрации
+// В auth.js в функции handleRegistration:
 function handleRegistration() {
-    if (validateRegistrationForm()) {
-        // In a real app, this would send data to a server
-        alert('Регистрация прошла успешно!');
-        window.location.href = 'main.html';
+    console.log('🔄 Starting registration...');
+    
+    if (quickValidateForm('register')) {
+        const userData = {
+            name: document.getElementById('reg-name').value,
+            email: document.getElementById('reg-email').value,
+            phone: document.getElementById('reg-phone').value || '+7 XXX XXX-XX-XX',
+            avatar: null,
+            registeredAt: new Date().toISOString(),
+            lastLogin: new Date().toISOString()
+        };
+
+        console.log('📝 User data for registration:', userData);
+
+        // Сохраняем пользователя
+        if (typeof authState !== 'undefined') {
+            console.log('✅ Using authState');
+            authState.saveUserToStorage(userData);
+        } else {
+            console.log('⚠️ Using localStorage directly');
+            localStorage.setItem('fashioneco_current_user', JSON.stringify(userData));
+        }
+
+        // Перенаправляем на главную
+        console.log('🔄 Redirecting to index.html');
+        window.location.href = 'index.html';
     }
 }
 
-/**
- * Handles user login
- */
+// Обработчик входа
 function handleLogin() {
-    if (validateLoginForm()) {
-        // In a real app, this would send data to a server
-        alert('Вход выполнен успешно!');
-        window.location.href = 'main.html';
+    console.log('🔄 Starting login...');
+    
+    if (quickValidateForm('login')) {
+        const email = document.getElementById('login-email').value;
+        
+        const userData = {
+            name: "Тестовый Пользователь",
+            email: email,
+            phone: "+7 (912) 345-67-89",
+            avatar: null,
+            lastLogin: new Date().toISOString()
+        };
+
+        console.log('📝 User data for login:', userData);
+
+        // Сохраняем пользователя
+        if (typeof authState !== 'undefined') {
+            console.log('✅ Using authState');
+            authState.saveUserToStorage(userData);
+        } else {
+            console.log('⚠️ Using localStorage directly');
+            localStorage.setItem('fashioneco_current_user', JSON.stringify(userData));
+        }
+
+        // Перенаправляем на главную
+        console.log('🔄 Redirecting to index.html');
+        window.location.href = 'index.html';
     }
 }
+
+// Инициализация обработчиков
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 DOM loaded, setting up auth handlers...');
+    
+    const registerBtn = document.getElementById('btn-register');
+    const loginBtn = document.getElementById('btn-login');
+    
+    console.log('Register button:', registerBtn);
+    console.log('Login button:', loginBtn);
+    
+    if (registerBtn) {
+        registerBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('🎯 Register button clicked');
+            handleRegistration();
+        });
+    }
+    
+    if (loginBtn) {
+        loginBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('🎯 Login button clicked');
+            handleLogin();
+        });
+    }
+    
+    // Также добавляем обработчики для Enter в формах
+    const registerForm = document.querySelector('#screen-register .auth-card');
+    const loginForm = document.querySelector('#screen-login .auth-card');
+    
+    if (registerForm) {
+        registerForm.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleRegistration();
+            }
+        });
+    }
+    
+    if (loginForm) {
+        loginForm.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleLogin();
+            }
+        });
+    }
+});
