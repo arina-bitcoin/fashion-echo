@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FASHIONECO - Профиль</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="topbar">
+        <div class="brand">FASHIONECO</div>
+        <div>
+            <button class="btn btn-secondary" id="back-btn">Назад</button>
+        </div>
+    </header>
+
+    <!-- Profile Content -->
+    <div class="profile-container">
+        <div class="profile-header">
+            <h1 class="profile-title">ПРОФИЛЬ</h1>
+            <p class="profile-subtitle">Управление вашими данными</p>
+        </div>
+
+        <div class="profile-card">
+            <div class="avatar-section">
+                <div class="profile-avatar" id="user-avatar">
+                    <div id="avatar-initials">ММ</div>
+                    <img id="avatar-image" src="" alt="Аватар" class="hidden">
+                    <div class="avatar-overlay">
+                        <span>Изменить фото</span>
+                    </div>
+                </div>
+                <div class="avatar-actions">
+                    <button class="avatar-btn" id="change-avatar-btn">Изменить фото</button>
+                    <button class="avatar-btn remove" id="remove-avatar-btn">Удалить фото</button>
+                </div>
+                <input type="file" id="avatar-input" accept="image/*" class="hidden">
+            </div>
+
+            <form id="profile-form">
+                <div class="form-field">
+                    <label class="form-label" for="user-name">Имя</label>
+                    <div class="field-container">
+                        <input type="text" id="user-name" class="input" value="Мария Михайлова" readonly>
+                        <button type="button" class="edit-btn" data-field="user-name">✏️</button>
+                    </div>
+                </div>
+
+                <div class="form-field">
+                    <label class="form-label" for="user-email">Почта</label>
+                    <div class="field-container">
+                        <input type="email" id="user-email" class="input" value="maria@example.com" readonly>
+                        <button type="button" class="edit-btn" data-field="user-email">✏️</button>
+                    </div>
+                </div>
+
+                <div class="form-field">
+                    <label class="form-label" for="user-phone">Телефон</label>
+                    <div class="field-container">
+                        <input type="tel" id="user-phone" class="input" value="+7 (912) 345-67-89" readonly>
+                        <button type="button" class="edit-btn" data-field="user-phone">✏️</button>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button type="button" class="btn btn-secondary" id="cancel-btn" style="display: none;">Отмена</button>
+                    <button type="submit" class="btn btn-primary btn-wide" id="save-btn">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="brand">FASHIONECO</div>
+        <div class="footer-links">
+            <a href="#">О нас</a>
+            <a href="#">Помощь</a>
+            <a href="#">Контакты</a>
+        </div>
+    </footer>
+
+    <script src="profile.js"></script>
+</body>
+</html>
