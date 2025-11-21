@@ -624,6 +624,7 @@ body {
 }
 
 .brand {
+    text-decoration: none;
     font-weight: 800;
     letter-spacing: 0.06em;
     color: var(--primary-color);

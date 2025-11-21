@@ -4,16 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FASHIONECHO - Профиль</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="profile.css">
-    <style>
-
-    </style>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/profile.css">
 </head>
 <body>
     <!-- Header -->
     <header class="topbar">
-        <div class="brand">FASHIONECO</div>
+        <a class="brand" href='index.html'>FASHIONECHO</a>
         <div>
             <button class="btn btn-secondary" id="back-btn" onclick="window.location.href='index.html'">Назад</button>
         </div>
@@ -80,68 +77,17 @@
 
     <!-- Footer -->
     <footer class="footer">
-        <div class="brand">FASHIONECO</div>
+        <div class="brand">FASHIONECHO</div>
         <div class="footer-links">
             <a href="index.html">Главная</a>
             <a href="offers.html">Предложения</a>
-            <a href="#">Помощь</a>
+            <a href="#">О нас</a>
         </div>
     </footer>
 
-    <script src="api-service.js"></script>    <!-- ПЕРВЫЙ -->
-    <script src="auth-state.js"></script>     <!-- ВТОРОЙ -->
-    <script src="auth.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('🔧 Profile page loaded');
-            
-            // Проверяем авторизацию
-            if (!window.authState || !window.authState.isLoggedIn()) {
-                console.log('❌ User not logged in, redirecting to login');
-                alert('Пожалуйста, войдите в систему');
-                window.location.href = 'login.html';
-                return;
-            }
-
-            // Загружаем данные текущего пользователя в профиль
-            const currentUser = window.authState.getCurrentUser();
-            console.log('📁 Current user data for profile:', currentUser);
-            
-            if (currentUser) {
-                // Устанавливаем данные напрямую в поля
-                document.getElementById('user-name').value = currentUser.name || '';
-                document.getElementById('user-email').value = currentUser.email || '';
-                document.getElementById('user-phone').value = currentUser.phone || '';
-                
-                // Обновляем аватар
-                const avatarInitials = document.getElementById('avatar-initials');
-                const avatarImage = document.getElementById('avatar-image');
-                
-                if (currentUser.avatar) {
-                    avatarImage.src = currentUser.avatar;
-                    avatarImage.classList.remove('hidden');
-                    avatarInitials.classList.add('hidden');
-                } else {
-                    // Создаем инициалы
-                    const names = (currentUser.name || '').split(' ');
-                    let initials = '';
-                    if (names.length >= 2) {
-                        initials = names[0].charAt(0) + names[1].charAt(0);
-                    } else if (names.length === 1) {
-                        initials = names[0].charAt(0);
-                    } else {
-                        initials = 'U';
-                    }
-                    avatarInitials.textContent = initials.toUpperCase();
-                    avatarImage.classList.add('hidden');
-                    avatarInitials.classList.remove('hidden');
-                }
-                
-                console.log('✅ Profile data loaded successfully');
-            } else {
-                console.error('❌ Failed to load profile data');
-            }
-        });
-    </script>
+    <script src="js/api-service.js"></script>    <!-- ПЕРВЫЙ -->
+    <script src="js/auth-state.js"></script>     <!-- ВТОРОЙ -->
+    <script src="js/auth.js"></script>
+    <script src="js/profile.js"></script>
 </body>
 </html>

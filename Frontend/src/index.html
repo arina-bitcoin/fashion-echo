@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FASHIONECHO - Карта</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="profile.css">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/profile.css">
     
 </style>
     </style>
@@ -13,10 +13,10 @@
 <body>
     <section id="screen-map" class="screen active">
         <header class="topbar">
-            <div class="brand">FASHIONECHO</div>
+            <a class="brand" href='index.html'>FASHIONECHO</a>
             <div class="header-actions">
     <button class="btn btn-secondary" onclick="window.location.href='offers.html'">Предложения</button>
-    
+    <button class="btn btn-secondary" onclick="window.location.href='cart.html'">Корзина</button>
     <div id="auth-section">
         <!-- Кнопка входа -->
         <button class="btn btn-primary" id="login-btn" onclick="window.location.href='login.html'">Вход/Регистрация</button>
@@ -52,6 +52,15 @@
             </div>
         </div>
     </section>
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="brand">FASHIONECHO</div>
+        <div class="footer-links">
+            <a href="index.html">Главная</a>
+            <a href="offers.html">Предложения</a>
+            <a href="#">О нас</a>
+        </div>
+    </footer>
     <script src="api-service.js"></script>    <!-- ПЕРВЫЙ -->
     <script src="auth-state.js"></script>     <!-- ВТОРОЙ -->
     <script src="auth.js"></script>
