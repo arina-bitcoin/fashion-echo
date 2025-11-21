@@ -1,31 +1,3 @@
-# from fastapi import APIRouter, Depends, HTTPException, Query, status
-# from sqlalchemy.orm import Session
-# from typing import Optional, List
-
-# from Backend.app.core.database import get_db
-# from Backend.app.dependencies import get_current_user
-# from Backend.app.models.user import User
-# from Backend.app.schemas.secondhand import ...
-# from Backend.app.services.ad_service import AdService
-
-# router = APIRouter()
-
-# @router.get("/", response_model=List[SecondhandResponse])
-# async def get_secondhands(
-#     city: Optional[str] = None,
-#     search: Optional[str] = None,
-#     db: Session = Depends(get_db)
-# ):
-#     pass
-
-# @router.get("/map", response_model=List[MapPointResponse])
-# async def get_secondhands_for_map(
-#     ne_lat: float, ne_lng: float, sw_lat: float, sw_lng: float,
-#     db: Session = Depends(get_db)
-# ):
-#     pass
-
-# backend/app/api/v1/endpoints/secondhand.py
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
