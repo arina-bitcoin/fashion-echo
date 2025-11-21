@@ -5,55 +5,56 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FASHIONECHO - Предложения</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="profile.css">
 </head>
 <body>
     <section id="screen-offers" class="screen active">
         <header class="topbar">
-            <div class="brand">FASHIONECO</div>
-            <div>
-                <button class="btn btn-secondary" onclick="window.location.href='index.html'">Карта</button>
-            </div>
+            <a class="brand" href='index.html'>FASHIONECHO</a>
+            <div class="header-actions">
+    <button class="btn btn-secondary" onclick="window.location.href='offers.html'">Предложения</button>
+    <button class="btn btn-secondary" onclick="window.location.href='cart.html'">Корзина</button>
+    <div id="auth-section">
+        <!-- Кнопка входа -->
+        <button class="btn btn-primary" id="login-btn" onclick="window.location.href='login.html'">Вход/Регистрация</button>
+        
+        <!-- Аватар пользователя -->
+        <div id="user-avatar-btn" class="user-avatar-header">
+            <img id="header-avatar" src="" alt="Аватар">
+        </div>
+        
+        <!-- Выпадающее меню ВНЕ аватара -->
+        <div class="user-dropdown-menu">
+            <button class="user-menu-item" id="profile-btn">
+                <span>📋</span> Профиль
+            </button>
+            <button class="user-menu-item" id="logout-btn">
+                <span>🚪</span> Выйти
+            </button>
+        </div>
+    </div>
+</div>
         </header>
         <div style="padding:12px 16px; display:grid; gap:14px;">
-            <div style="color:var(--primary-color); font-weight:800; letter-spacing:0.06em;">Предложения</div>
+            <div style="color:var(--primary-color); letter-spacing:0.06em;">Предложения</div>
             <div id="offers" class="offers-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:14px;"></div>
         </div>
     </section>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            populateOffers();
-        });
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="brand">FASHIONECHO</div>
+        <div class="footer-links">
+            <a href="index.html">Главная</a>
+            <a href="offers.html">Предложения</a>
+            <a href="#">О нас</a>
+        </div>
+    </footer>
 
-        function populateOffers() {
-            const offersContainer = document.getElementById('offers');
-            if (!offersContainer) return;
-            
-            const sampleOffers = [
-                { id: 1, name: 'Платье летнее', price: '1200 руб.' },
-                { id: 2, name: 'Джинсы классические', price: '800 руб.' },
-                { id: 3, name: 'Куртка кожаная', price: '2500 руб.' },
-                { id: 4, name: 'Блузка офисная', price: '600 руб.' },
-                { id: 5, name: 'Юбка миди', price: '900 руб.' },
-                { id: 6, name: 'Свитер шерстяной', price: '1100 руб.' }
-            ];
-            
-            sampleOffers.forEach(offer => {
-                const offerElement = document.createElement('div');
-                offerElement.className = 'offer';
-                offerElement.style.background = 'var(--card-color)';
-                offerElement.style.borderRadius = '12px';
-                offerElement.style.overflow = 'hidden';
-                offerElement.style.boxShadow = 'var(--shadow)';
-                
-                offerElement.innerHTML = `
-                    <img src="https://via.placeholder.com/300x300/F3E4D3/4B0505?text=FASHIONECO" alt="${offer.name}" style="display:block; width:100%; aspect-ratio:1/1; object-fit:cover;">
-                    <div style="padding:10px; font-weight:600; color:var(--primary-color);">${offer.name}<br><small>${offer.price}</small></div>
-                `;
-                
-                offersContainer.appendChild(offerElement);
-            });
-        }
-    </script>
+
+    <script src="api-service.js"></script>    <!-- ПЕРВЫЙ -->
+    <script src="auth-state.js"></script>     <!-- ВТОРОЙ -->
+    <script src="auth.js"></script>
+    <script src="offers.js"></script>
 </body>
 </html>
