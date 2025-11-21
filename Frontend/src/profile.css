@@ -262,3 +262,51 @@
     #user-avatar-btn {
         display: none;
     }
+
+/* Стили для кнопки удаления аккаунта */
+.delete-account-btn {
+    padding: 12px 15px;
+    border: none;
+    border-radius: 9999px;
+    background: #fee2e2;
+    color: #e53e3e;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+    border: 1px solid #e53e3e;
+    background: #fee2e2;
+    color: #e53e3e;
+    display: block;
+    margin: 0 auto;
+    position: relative;
+    margin-bottom: 5px;
+    /* Минимальная ширина для consistency */
+    min-width: 140px;
+}
+
+/* Состояние при наведении */
+.delete-account-btn:hover {
+    background: #e53e3e;
+    color: white;
+}
+
+
+/* Для мобильных устройств */
+@media (max-width: 560px) {
+    .delete-account-btn {
+        width: 100%;
+        max-width: 200px;
+        padding: 8px 16px;
+        font-size: 0.9rem;
+    }
+}
+
+/* Дополнительный контейнер для лучшего центрирования если нужно */
+.delete-account-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 15px 0;
+    padding: 10px 0;
+    border-top: 1px solid #e5e7eb;
+} 
