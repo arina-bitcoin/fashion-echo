@@ -36,7 +36,7 @@ class ShoppingCart {
                     {
                         id: 1,
                         name: 'Платье летнее',
-                        price: 1200,
+                        price: 200,
                         size: 'M',
                         image: 'https://via.placeholder.com/300x300/F3E4D3/4B0505?text=Платье',
                         quantity: 1
@@ -44,7 +44,7 @@ class ShoppingCart {
                     {
                         id: 2,
                         name: 'Джинсы классические',
-                        price: 800,
+                        price: 80,
                         size: '42',
                         image: 'https://via.placeholder.com/300x300/F3E4D3/4B0505?text=Джинсы',
                         quantity: 2
@@ -52,7 +52,7 @@ class ShoppingCart {
                     {
                         id: 3,
                         name: 'Куртка кожаная',
-                        price: 2500,
+                        price: 250,
                         size: 'L',
                         image: 'https://via.placeholder.com/300x300/F3E4D3/4B0505?text=Куртка',
                         quantity: 1
@@ -121,11 +121,11 @@ class ShoppingCart {
 
             updateSummary() {
                 const subtotal = this.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                const shipping = subtotal > 3000 ? 0 : 500; // Бесплатная доставка от 3000₽
-                const total = subtotal + shipping;
+                const shipping = 'Бесплатно'; 
+                const total = subtotal;
 
                 this.elements.subtotal.textContent = `${subtotal.toLocaleString()} ₽`;
-                this.elements.shipping.textContent = shipping === 0 ? 'Бесплатно' : `${shipping} ₽`;
+                this.elements.shipping.textContent = 'Бесплатно';
                 this.elements.total.textContent = `${total.toLocaleString()} ₽`;
 
                 // Обновляем количество товаров в сводке
