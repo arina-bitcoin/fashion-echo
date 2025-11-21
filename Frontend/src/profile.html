@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FASHIONECO - Профиль</title>
+    <title>FASHIONECHO - Профиль</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="profile.css">
     <style>
@@ -73,6 +73,9 @@
                 </div>
             </form>
         </div>
+        <div class="delete-account-container">
+            <button type="button" class="delete-account-btn" id="delete-account-btn">Удалить аккаунт</button>
+        </div>
     </div>
 
     <!-- Footer -->
@@ -85,8 +88,9 @@
         </div>
     </footer>
 
-    <script src="auth-state.js"></script>
-    <script src="profile.js"></script>
+    <script src="api-service.js"></script>    <!-- ПЕРВЫЙ -->
+    <script src="auth-state.js"></script>     <!-- ВТОРОЙ -->
+    <script src="auth.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🔧 Profile page loaded');
