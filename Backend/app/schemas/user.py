@@ -28,6 +28,7 @@ from datetime import datetime
 class UserBase(BaseModel):
     email: Optional[EmailStr] = None
     name: Optional[str] = None
+    phone: Optional[str] = None
 
 class UserCreate(UserBase):
     name: str
@@ -42,7 +43,7 @@ class UserCreate(UserBase):
         return v
 
 class UserUpdate(UserBase):
-    pass
+    phone: Optional[str] = None
 
 class UserResponse(UserBase):
     id: int
