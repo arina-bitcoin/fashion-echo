@@ -1,11 +1,11 @@
-// api-service.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
+// api-service.js - ФИНАЛЬНАЯ РАБОЧАЯ ВЕРСИЯ
 console.log('✅ api-service.js loaded');
 
 class ApiService {
     constructor() {
         this.BASE_URL = 'http://localhost:8000/api';
         this.token = localStorage.getItem('auth_token');
-        console.log('🔧 ApiService created');
+        console.log('🔧 ApiService created with token:', !!this.token);
     }
 
     async request(endpoint, options = {}) {
@@ -24,19 +24,19 @@ class ApiService {
         }
 
         try {
-            console.log(`🔄 API Request: ${endpoint}`, config);
+            console.log(`🔄 API ${config.method || 'GET'} Request: ${url}`);
             
             const response = await fetch(url, config);
             
-            const responseText = await response.text();
-            console.log(`📨 Response status: ${response.status}`);
+            console.log(`📨 Response: ${response.status} for ${endpoint}`);
             
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}. Details: ${responseText}`);
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
             }
             
+            const responseText = await response.text();
             const data = responseText ? JSON.parse(responseText) : {};
-            console.log(`✅ API Response: ${endpoint}`, data);
             return data;
             
         } catch (error) {
@@ -45,9 +45,8 @@ class ApiService {
         }
     }
 
-    // Auth endpoints
+    // Auth endpoints - ФИНАЛЬНЫЕ РАБОЧИЕ МЕТОДЫ
     async register(userData) {
-        // ПРАВИЛЬНЫЙ ФОРМАТ: бекенд ожидает name
         const registerData = {
             name: userData.name,
             email: userData.email,
@@ -55,7 +54,7 @@ class ApiService {
             password: userData.password
         };
         
-        console.log('📤 Sending registration:', registerData);
+        console.log('📤 Registering user:', { ...registerData, password: '***' });
         
         return this.request('/auth/register', {
             method: 'POST',
@@ -64,72 +63,51 @@ class ApiService {
     }
 
     async login(credentials) {
-        // УНИВЕРСАЛЬНЫЙ МЕТОД: пробуем разные форматы
-        console.log('🔐 Attempting login...');
+        console.log('🔐 Logging in with:', { email: credentials.email, password: '***' });
         
-        const attempts = [
-            {
-                name: 'POST with JSON',
-                request: () => this.request('/auth/login', {
-                    method: 'POST',
-                    body: JSON.stringify(credentials)
-                })
-            },
-            {
-                name: 'GET with query',
-                request: () => {
-                    const queryParams = new URLSearchParams(credentials).toString();
-                    return this.request(`/auth/login?${queryParams}`, { method: 'GET' });
-                }
-            }
-        ];
+        // РАБОЧИЙ ФОРМАТ: POST с query parameters в URL
+        const queryParams = new URLSearchParams({
+            email: credentials.email,
+            password: credentials.password
+        }).toString();
         
-        for (let attempt of attempts) {
-            try {
-                console.log(`🔄 Trying: ${attempt.name}`);
-                const result = await attempt.request();
-                console.log(`✅ Success with: ${attempt.name}`);
-                return result;
-            } catch (error) {
-                console.log(`❌ Failed with ${attempt.name}:`, error.message);
-                continue;
-            }
-        }
+        const endpoint = `/auth/login?${queryParams}`;
         
-        throw new Error('All login methods failed');
-    }
-
-    async logout() {
-        return this.request('/auth/logout', {
+        return this.request(endpoint, {
             method: 'POST'
         });
     }
 
+    async logout() {
+        console.log('🚪 Logging out...');
+        
+        try {
+            const result = await this.request('/auth/logout', {
+                method: 'POST'
+            });
+            this.clearToken();
+            return result;
+        } catch (error) {
+            console.log('⚠️ Logout endpoint not available, clearing token locally');
+            this.clearToken();
+            return { message: 'Logged out locally' };
+        }
+    }
+
     async getCurrentUser() {
+        console.log('👤 Getting current user...');
+        
+        // Используем работающий endpoint
         return this.request('/auth/me');
     }
 
     async updateProfile(profileData) {
-        return this.request('/auth/profile', {
+        console.log('💾 Updating profile:', profileData);
+        
+        return this.request('/users/me', {
             method: 'PUT',
             body: JSON.stringify(profileData)
         });
-    }
-
-    async updateAvatar(avatarData) {
-        return this.request('/auth/avatar', {
-            method: 'PUT',
-            body: JSON.stringify(avatarData)
-        });
-    }
-
-    // Users endpoints
-    async getAllUsers() {
-        return this.request('/users');
-    }
-
-    async getUserById(userId) {
-        return this.request(`/users/${userId}`);
     }
 
     // Token management

@@ -162,51 +162,51 @@ class UserProfile {
     }
 
     async handleAvatarUpload(event) {
-        const fileInput = event.target;
-        if (!fileInput.files || fileInput.files.length === 0) {
-            return;
-        }
-
-        const file = fileInput.files[0];
-        console.log('📤 Uploading file:', file.name, file.size, 'bytes');
-
-        // Проверка типа файла
-        if (!file.type.startsWith('image/')) {
-            this.showErrorMessage('Пожалуйста, выберите файл изображения (JPEG, PNG, etc.)');
-            return;
-        }
-
-        // Проверка размера файла (макс. 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-            this.showErrorMessage('Размер файла не должен превышать 5MB');
-            return;
-        }
-
-        try {
-            // Показываем индикатор загрузки
-            this.showLoading('Загрузка фото...');
-
-            // Чтение файла и создание URL
-            const imageUrl = await this.readFileAsDataURL(file);
-            this.setAvatarImage(imageUrl);
-            this.hasCustomAvatar = true;
-            
-            // Сохраняем аватар ГЛОБАЛЬНО
-            if (this.isAuthStateAvailable()) {
-                await window.authState.updateUserAvatar(imageUrl);
-            } else {
-                // Fallback: сохраняем в localStorage
-                await this.saveAvatarToLocalStorage(imageUrl);
-            }
-            
-            this.hideLoading();
-            this.showSuccessMessage('Фото профиля успешно обновлено и сохранено!');
-        } catch (error) {
-            this.hideLoading();
-            console.error('Error uploading avatar:', error);
-            this.showErrorMessage('Ошибка при загрузке фото: ' + error.message);
-        }
+    const fileInput = event.target;
+    if (!fileInput.files || fileInput.files.length === 0) {
+        return;
     }
+
+    const file = fileInput.files[0];
+    console.log('📤 Uploading file:', file.name, file.size, 'bytes');
+
+    // Проверка типа файла
+    if (!file.type.startsWith('image/')) {
+        this.showErrorMessage('Пожалуйста, выберите файл изображения (JPEG, PNG, etc.)');
+        return;
+    }
+
+    // Проверка размера файла (макс. 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+        this.showErrorMessage('Размер файла не должен превышать 5MB');
+        return;
+    }
+
+    try {
+        this.showLoading('Загрузка фото...');
+
+        // Чтение файла и создание URL
+        const imageUrl = await this.readFileAsDataURL(file);
+        this.setAvatarImage(imageUrl);
+        this.hasCustomAvatar = true;
+        
+        // Сохраняем аватар через API
+        if (this.isAuthStateAvailable()) {
+            await window.authState.updateUserAvatar(imageUrl);
+        } else {
+            // Fallback: сохраняем в localStorage
+            await this.saveAvatarToLocalStorage(imageUrl);
+        }
+        
+        this.hideLoading();
+        this.showSuccessMessage('Фото профиля успешно обновлено и сохранено!');
+    } catch (error) {
+        this.hideLoading();
+        console.error('Error uploading avatar:', error);
+        this.showErrorMessage('Ошибка при загрузке фото: ' + error.message);
+    }
+}
+
 
     readFileAsDataURL(file) {
         return new Promise((resolve, reject) => {
@@ -368,42 +368,41 @@ class UserProfile {
     }
 
     async saveProfileChanges(formData = null) {
-        try {
-            // Если данные не переданы, собираем их из формы
-            const dataToSave = formData || {
-                name: this.elements.userNameInput.value.trim(),
-                email: this.elements.userEmailInput.value.trim(),
-                phone: this.elements.userPhoneInput.value.trim(),
-                avatar: this.hasCustomAvatar ? this.elements.avatarImage.src : null
-            };
+    try {
+        const dataToSave = formData || {
+            name: this.elements.userNameInput.value.trim(),
+            email: this.elements.userEmailInput.value.trim(),
+            phone: this.elements.userPhoneInput.value.trim(),
+            avatar: this.hasCustomAvatar ? this.elements.avatarImage.src : null
+        };
 
-            console.log('💾 Saving profile data globally:', dataToSave);
+        console.log('💾 Saving profile data globally via API:', dataToSave);
 
-            // Сохраняем через authState (глобально)
-            if (this.isAuthStateAvailable()) {
-                const updatedUser = await window.authState.updateUserProfile(dataToSave);
-                
-                if (!updatedUser) {
-                    throw new Error('Не удалось сохранить данные в системе');
-                }
-
-                console.log('✅ Profile data saved globally via authState');
-            } else {
-                // Fallback: сохраняем в localStorage
-                await this.saveToLocalStorage(dataToSave);
-                console.log('✅ Profile data saved to localStorage');
+        // Сохраняем через authState (который использует API)
+        if (this.isAuthStateAvailable()) {
+            const updatedUser = await window.authState.updateUserProfile(dataToSave);
+            
+            if (!updatedUser) {
+                throw new Error('Не удалось сохранить данные в системе');
             }
 
-            // Обновляем аватар
-            this.updateAvatar();
-
-            return true;
-
-        } catch (error) {
-            console.error('❌ Error in saveProfileChanges:', error);
-            throw error;
+            console.log('✅ Profile data saved via API');
+        } else {
+            // Fallback: сохраняем в localStorage
+            await this.saveToLocalStorage(dataToSave);
+            console.log('✅ Profile data saved to localStorage');
         }
+
+        // Обновляем аватар
+        this.updateAvatar();
+
+        return true;
+
+    } catch (error) {
+        console.error('❌ Error in saveProfileChanges:', error);
+        throw error;
     }
+}
 
     // Сохранение в localStorage (fallback)
     async saveToLocalStorage(profileData) {

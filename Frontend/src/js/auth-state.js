@@ -51,82 +51,102 @@ class AuthStateManager {
     }
 
     // РЕГИСТРАЦИЯ
-    async register(userData) {
-        try {
-            console.log('👤 Registering new user via API...');
+    async login(email, password) {
+    try {
+        console.log('🔐 Logging in via API...');
+        
+        const response = await apiService.login({
+            email: email,
+            password: password
+        });
+
+        console.log('📨 Login response:', response);
+
+        // ИСПРАВЛЕНИЕ: Проверяем наличие access_token (а не access_token)
+        if (response.access_token) {
+            apiService.setToken(response.access_token);
             
-            const response = await apiService.register({
-                name: userData.name,
+            // Загружаем данные пользователя с бекенда
+            await this.loadCurrentUserFromAPI();
+        } else {
+            // ДОБАВЛЯЕМ ДЕТАЛЬНУЮ ОТЛАДКУ
+            console.log('🔍 Token debug - response keys:', Object.keys(response));
+            console.log('🔍 Available tokens:', {
+                access_token: response.access_token,
+                refresh_token: response.refresh_token,
+                token_type: response.token_type
+            });
+            throw new Error('No access_token in login response');
+        }
+
+        this.updateUI();
+        console.log('✅ User logged in via API:', this.currentUser?.name);
+        return this.currentUser;
+
+    } catch (error) {
+        console.error('❌ Login failed:', error);
+        throw error;
+    }
+}
+
+// ТАКЖЕ ИСПРАВЛЯЕМ МЕТОД РЕГИСТРАЦИИ ДЛЯ АВТО-ЛОГИНА
+async register(userData) {
+    try {
+        console.log('👤 Registering new user via API...');
+        
+        const response = await apiService.register({
+            name: userData.name,
+            email: userData.email,
+            phone: userData.phone || '',
+            password: userData.password
+        });
+
+        console.log('📨 Registration response:', response);
+
+        // АВТОМАТИЧЕСКИ ВХОДИМ ПОСЛЕ УСПЕШНОЙ РЕГИСТРАЦИИ
+        console.log('🔐 Auto-login after registration...');
+        try {
+            const loginResponse = await apiService.login({
                 email: userData.email,
-                phone: userData.phone || '',
                 password: userData.password
             });
-
-            console.log('📨 Registration response:', response);
-
-            // Сохраняем токен если он есть в ответе
-            if (response.token) {
-                apiService.setToken(response.token);
-                
-                // Загружаем данные пользователя с бекенда
-                await this.loadCurrentUserFromAPI();
-            } else {
-                // Если токена нет, создаем пользователя из response
-                this.currentUser = {
-                    id: response.id,
-                    name: response.name,
-                    email: response.email,
-                    phone: userData.phone || '',
-                    avatar: null,
-                    isActive: response.is_active !== false,
-                    isVerified: response.is_verified || false,
-                    registeredAt: response.created_at || new Date().toISOString(),
-                    lastLogin: new Date().toISOString()
-                };
-            }
-
-            this.updateUI();
-            console.log('✅ New user registered via API:', this.currentUser?.name);
-            return this.currentUser;
-
-        } catch (error) {
-            console.error('❌ Registration failed:', error);
-            throw error;
-        }
-    }
-
-    // ЛОГИН - ТОЛЬКО ЧЕРЕЗ API
-    async login(email, password) {
-        try {
-            console.log('🔐 Logging in via API...');
             
-            const response = await apiService.login({
-                email: email,
-                password: password
-            });
-
-            console.log('📨 Login response:', response);
-
-            // Сохраняем токен
-            if (response.token) {
-                apiService.setToken(response.token);
+            // ИСПРАВЛЕНИЕ: Проверяем access_token
+            if (loginResponse.access_token) {
+                apiService.setToken(loginResponse.access_token);
+                console.log('✅ Auto-login successful, token saved');
                 
-                // Загружаем данные пользователя с бекенда
+                // Загружаем данные пользователя
                 await this.loadCurrentUserFromAPI();
             } else {
-                throw new Error('No token in login response');
+                console.log('❌ No access_token in auto-login response');
+                throw new Error('Auto-login failed: no token received');
             }
-
-            this.updateUI();
-            console.log('✅ User logged in via API:', this.currentUser?.name);
-            return this.currentUser;
-
-        } catch (error) {
-            console.error('❌ Login failed:', error);
-            throw error;
+        } catch (loginError) {
+            console.log('⚠️ Auto-login failed:', loginError.message);
+            // Если авто-логин не удался, создаем пользователя из response регистрации
+            this.currentUser = {
+                id: response.id,
+                name: response.name,
+                email: response.email,
+                phone: userData.phone || '',
+                avatar: null,
+                isActive: response.is_active !== false,
+                isVerified: response.is_verified || false,
+                registeredAt: response.created_at || new Date().toISOString(),
+                lastLogin: new Date().toISOString()
+            };
         }
-    }
 
+        this.updateUI();
+        console.log('✅ New user registered:', this.currentUser?.name);
+        return this.currentUser;
+
+    } catch (error) {
+        console.error('❌ Registration failed:', error);
+        throw error;
+    }
+}
     // ВЫХОД
     async logout() {
         try {
