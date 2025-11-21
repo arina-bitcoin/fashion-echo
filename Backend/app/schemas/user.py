@@ -27,12 +27,12 @@ from datetime import datetime
 
 class UserBase(BaseModel):
     email: Optional[EmailStr] = None
-    full_name: Optional[str] = None
+    name: Optional[str] = None
 
 class UserCreate(UserBase):
     email: EmailStr
     password: str
-    full_name: str
+    name: str
     
     @field_validator('password')
     def password_strength(cls, v):

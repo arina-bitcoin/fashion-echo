@@ -253,7 +253,7 @@ class AuthManager {
         if (!value) return true;
         
         if (!this.isValidPassword(value)) {
-            this.setFieldError(input, 'Пароль должен содержать至少 6 символов');
+            this.setFieldError(input, 'Пароль должен содержать 8 символов');
             return false;
         } else {
             this.clearFieldError(input);
@@ -298,7 +298,7 @@ class AuthManager {
     }
 
     isValidPassword(password) {
-        return password && password.length >= 6;
+        return password && password.length >= 8;
     }
 
     isValidPhone(phone) {
@@ -653,10 +653,10 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
         const loginEmail = document.getElementById('login-email');
         const loginPass = document.getElementById('login-pass');
         
-        if (loginEmail && loginPass) {
-            loginEmail.value = 'test@example.com';
-            loginPass.value = '123456';
-        }
+        // if (loginEmail && loginPass) {
+        //     loginEmail.value = 'test@example.com';
+        //     loginPass.value = '123456';
+        // }
         
         // Автозаполнение формы регистрации для тестирования
         const regName = document.getElementById('reg-name');
@@ -666,14 +666,14 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
         const regPassConfirm = document.getElementById('reg-pass-confirm');
         const regTerms = document.getElementById('reg-terms');
         
-        if (regName && regEmail) {
-            const timestamp = Date.now();
-            regName.value = 'Тестовый Пользователь';
-            regEmail.value = `test${timestamp}@example.com`;
-            regPhone.value = '+7 (912) 345-67-89';
-            regPass.value = '123456';
-            regPassConfirm.value = '123456';
-            regTerms.checked = true;
-        }
+        // if (regName && regEmail) {
+        //     const timestamp = Date.now();
+        //     regName.value = 'Тестовый Пользователь';
+        //     regEmail.value = `test${timestamp}@example.com`;
+        //     regPhone.value = '+7 (912) 345-67-89';
+        //     regPass.value = '123456';
+        //     regPassConfirm.value = '123456';
+        //     regTerms.checked = true;
+        // }
     });
 }
