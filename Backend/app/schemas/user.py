@@ -30,9 +30,10 @@ class UserBase(BaseModel):
     name: Optional[str] = None
 
 class UserCreate(UserBase):
-    email: EmailStr
-    password: str
     name: str
+    email: EmailStr
+    phone: str
+    password: str
     
     @field_validator('password')
     def password_strength(cls, v):
@@ -45,6 +46,9 @@ class UserUpdate(UserBase):
 
 class UserResponse(UserBase):
     id: int
+    # email: str
+    # name: str
+    # phone: str
     is_active: bool
     is_verified: bool
     created_at: datetime

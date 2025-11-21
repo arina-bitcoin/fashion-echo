@@ -64,9 +64,11 @@
 #     async with engine.begin() as conn:
 #         await conn.run_sync(Base.metadata.drop_all)
 
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncAttrs
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
+# from .database import AsyncSessionLocal
 
 """"""
 from sqlalchemy.orm import DeclarativeBase, declared_attr
@@ -80,25 +82,39 @@ engine = create_async_engine(
     echo=True  # Показывает SQL запросы в консоли (можно убрать)
 )
 
-async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
+# async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
 
 """"""
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+# SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Base = declarative_base()
+class Base(DeclarativeBase):
+    pass
 """"""
 
-class Base(AsyncAttrs, DeclarativeBase):
-    __abstract__ = True
+AsyncSessionLocal = async_sessionmaker(
+    engine, 
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autoflush=False
+)
 
-    @declared_attr.directive
-    def __tablename__(cls) -> str:
-        return f"{cls.__name__.lower()}s"
+# class Base(AsyncAttrs, DeclarativeBase):
+#     __abstract__ = True
+
+#     @declared_attr.directive
+#     def __tablename__(cls) -> str:
+#         return f"{cls.__name__.lower()}s"
 
 """"""
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def get_db() -> AsyncSession:
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
 """"""
+
+async def create_db_and_tables():
+    """Создание всех таблиц в базе данных"""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)

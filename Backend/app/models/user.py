@@ -15,7 +15,7 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     "ХЗ ABOUT THAT"
-    phone = Column(String(20), nullable=True)
+    # phone = Column(String(20), nullable=True)
     avatar = Column(String(200), nullable=True)  # путь к аватару
     settings = Column(JSON)  # {'notifications': True, 'theme': 'light'}
     last_login = Column(DateTime, nullable=True)
