@@ -1,68 +1,56 @@
-// auth-state.js - Исправленная версия с всеми методами
+// auth-state.js - ПРАВИЛЬНАЯ АРХИТЕКТУРА
 console.log('✅ auth-state.js loaded');
 
 class AuthStateManager {
     constructor() {
         this.currentUser = null;
-        this.allUsers = [];
         console.log('🔧 AuthStateManager created');
         this.init();
     }
 
     async init() {
-        // Проверяем, есть ли токен и загружаем пользователя
+        console.log('🔄 Initializing AuthStateManager...');
+        
+        // 1. Проверяем есть ли токен
         const token = localStorage.getItem('auth_token');
+        
         if (token) {
+            // 2. Если есть токен - загружаем пользователя с бекенда
             await this.loadCurrentUserFromAPI();
+        } else {
+            // 3. Если нет токена - очищаем состояние
+            this.currentUser = null;
         }
+        
+        // 4. Обновляем UI
         this.updateUI();
+        
+        // 5. Настраиваем обработчики событий
         this.setupEventListeners();
+        
+        console.log('✅ AuthStateManager initialized');
+        console.log('👤 Current user:', this.currentUser);
+        console.log('🔐 Is logged in:', this.isLoggedIn());
     }
-
 
     async loadCurrentUserFromAPI() {
         try {
+            console.log('📡 Loading current user from API...');
             const userData = await apiService.getCurrentUser();
             this.currentUser = userData;
-            console.log('📁 Current user loaded from API:', this.currentUser.name);
+            console.log('✅ Current user loaded from API:', this.currentUser);
         } catch (error) {
             console.error('❌ Error loading current user from API:', error);
+            
+            // Если ошибка (например, невалидный токен) - очищаем состояние
             this.currentUser = null;
             apiService.clearToken();
+            
+            console.log('🔄 Cleared invalid token and user data');
         }
     }
 
-
-    // Сохранение всех пользователей
-    saveAllUsersToStorage() {
-        try {
-            localStorage.setItem('fashioneco_all_users', JSON.stringify(this.allUsers));
-            console.log('💾 All users saved:', this.allUsers.length);
-            return true;
-        } catch (error) {
-            console.error('❌ Error saving users:', error);
-            return false;
-        }
-    }
-
-    // Сохранение текущего пользователя
-    saveCurrentUserToStorage() {
-        try {
-            if (this.currentUser) {
-                localStorage.setItem('fashioneco_current_user', JSON.stringify(this.currentUser));
-                console.log('💾 Current user saved:', this.currentUser.name);
-            } else {
-                localStorage.removeItem('fashioneco_current_user');
-                console.log('💾 Current user removed from storage');
-            }
-            return true;
-        } catch (error) {
-            console.error('❌ Error saving current user:', error);
-            return false;
-        }
-    }
-
-    // ЗАМЕНА: Регистрация через API
+    // РЕГИСТРАЦИЯ
     async register(userData) {
         try {
             console.log('👤 Registering new user via API...');
@@ -74,16 +62,31 @@ class AuthStateManager {
                 password: userData.password
             });
 
-            // Сохраняем токен
+            console.log('📨 Registration response:', response);
+
+            // Сохраняем токен если он есть в ответе
             if (response.token) {
                 apiService.setToken(response.token);
+                
+                // Загружаем данные пользователя с бекенда
+                await this.loadCurrentUserFromAPI();
+            } else {
+                // Если токена нет, создаем пользователя из response
+                this.currentUser = {
+                    id: response.id,
+                    name: response.name,
+                    email: response.email,
+                    phone: userData.phone || '',
+                    avatar: null,
+                    isActive: response.is_active !== false,
+                    isVerified: response.is_verified || false,
+                    registeredAt: response.created_at || new Date().toISOString(),
+                    lastLogin: new Date().toISOString()
+                };
             }
 
-            // Устанавливаем текущего пользователя
-            this.currentUser = response.user;
             this.updateUI();
-
-            console.log('✅ New user registered via API:', this.currentUser.name);
+            console.log('✅ New user registered via API:', this.currentUser?.name);
             return this.currentUser;
 
         } catch (error) {
@@ -92,7 +95,8 @@ class AuthStateManager {
         }
     }
 
-        async login(email, password) {
+    // ЛОГИН - ТОЛЬКО ЧЕРЕЗ API
+    async login(email, password) {
         try {
             console.log('🔐 Logging in via API...');
             
@@ -101,16 +105,20 @@ class AuthStateManager {
                 password: password
             });
 
+            console.log('📨 Login response:', response);
+
             // Сохраняем токен
             if (response.token) {
                 apiService.setToken(response.token);
+                
+                // Загружаем данные пользователя с бекенда
+                await this.loadCurrentUserFromAPI();
+            } else {
+                throw new Error('No token in login response');
             }
 
-            // Устанавливаем текущего пользователя
-            this.currentUser = response.user;
             this.updateUI();
-
-            console.log('✅ User logged in via API:', this.currentUser.name);
+            console.log('✅ User logged in via API:', this.currentUser?.name);
             return this.currentUser;
 
         } catch (error) {
@@ -119,39 +127,18 @@ class AuthStateManager {
         }
     }
 
-
-    async updateUserProfile(profileData) {
-        if (!this.currentUser) {
-            throw new Error('Пользователь не авторизован');
-        }
-
-        try {
-            console.log('💾 Updating user profile via API...');
-            
-            const updatedUser = await apiService.updateProfile(profileData);
-            
-            // Обновляем текущего пользователя
-            this.currentUser = updatedUser;
-            this.updateUI();
-
-            console.log('✅ Profile updated via API:', updatedUser.name);
-            return updatedUser;
-
-        } catch (error) {
-            console.error('❌ Profile update failed:', error);
-            throw error;
-        }
-    }
-
+    // ВЫХОД
     async logout() {
         try {
-            console.log('🚪 Logging out via API...');
+            console.log('🚪 Logging out...');
             
-            // Вызываем logout на сервере
-            await apiService.logout();
+            // Пытаемся вызвать logout на сервере
+            try {
+                await apiService.logout();
+            } catch (error) {
+                console.log('⚠️ Logout API call failed (ignoring):', error.message);
+            }
             
-        } catch (error) {
-            console.error('❌ Logout API call failed:', error);
         } finally {
             // Всегда очищаем локальные данные
             this.currentUser = null;
@@ -168,148 +155,36 @@ class AuthStateManager {
         }
     }
 
-    // Обновление аватара
-    async updateUserAvatar(avatarUrl) {
-        return await this.updateUserProfile({
-            avatar: avatarUrl
-        });
-    }
-
-    async getUserById(userId) {
-        try {
-            const user = await apiService.getUserById(userId);
-            return user;
-        } catch (error) {
-            console.error('❌ Error fetching user:', error);
-            return null;
-        }
-    }
-
-    // Получение пользователя по email
-    getUserByEmail(email) {
-        return this.allUsers.find(user => user.email === email);
-    }
-
-    async getAllUsers() {
-        try {
-            const users = await apiService.getAllUsers();
-            return users;
-        } catch (error) {
-            console.error('❌ Error fetching users:', error);
-            return [];
-        }
-    }
-
-    // Генерация ID
-    generateId() {
-        return 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    }
-
-    setupEventListeners() {
-        // Обработчик для аватара
-        const avatarBtn = document.getElementById('user-avatar-btn');
-        if (avatarBtn) {
-            avatarBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.toggleDropdown();
-            });
-        }
-
-        // Обработчик для кнопок меню
-        document.addEventListener('click', (e) => {
-            const dropdown = document.querySelector('.user-dropdown-menu');
-            
-            // Клик по выходу
-            if (e.target.id === 'logout-btn' || e.target.closest('#logout-btn')) {
-                e.preventDefault();
-                this.logout();
-            }
-            
-            // Клик по профилю
-            else if (e.target.id === 'profile-btn' || e.target.closest('#profile-btn')) {
-                e.preventDefault();
-                window.location.href = 'profile.html';
-            }
-            
-            // Клик вне меню - скрываем
-            else if (dropdown && !dropdown.contains(e.target) && avatarBtn && !avatarBtn.contains(e.target)) {
-                dropdown.classList.remove('show');
-            }
-        });
-    }
-
-    toggleDropdown() {
-        const dropdown = document.querySelector('.user-dropdown-menu');
-        console.log('🎯 Toggling dropdown, current state:', dropdown.classList.contains('show'));
-        
-        if (dropdown) {
-            dropdown.classList.toggle('show');
-            console.log('🎯 New state:', dropdown.classList.contains('show') ? 'visible' : 'hidden');
-        }
-    }
-
-    loadUserFromStorage() {
-        try {
-            const userData = localStorage.getItem('fashioneco_current_user');
-            if (userData) {
-                this.currentUser = JSON.parse(userData);
-                console.log('📁 User loaded from storage:', this.currentUser);
-            } else {
-                console.log('📁 No user found in storage');
-            }
-        } catch (error) {
-            console.error('❌ Error loading user from storage:', error);
-            this.currentUser = null;
-        }
-    }
-
-    saveUserToStorage(user) {
-        try {
-            localStorage.setItem('fashioneco_current_user', JSON.stringify(user));
-            this.currentUser = user;
-            this.updateUI();
-            console.log('💾 User saved to storage:', user);
-            return true;
-        } catch (error) {
-            console.error('❌ Error saving user to storage:', error);
-            return false;
-        }
-    }
-
-    
-    // ДОБАВЛЯЕМ ОТСУТСТВУЮЩИЕ МЕТОДЫ:
-    isLoggedIn() {
-        return this.currentUser !== null;
-    }
-
-    getCurrentUser() {
-        return this.currentUser;
-    }
-
+    // UI методы
     updateUI() {
+        console.log('🎨 Updating UI...');
+        
         const loginBtn = document.getElementById('login-btn');
         const avatarBtn = document.getElementById('user-avatar-btn');
         const avatarImg = document.getElementById('header-avatar');
 
-        console.log('🎨 Updating UI...');
-        console.log('  Login button:', loginBtn);
-        console.log('  Avatar button:', avatarBtn);
-        console.log('  User logged in:', this.isLoggedIn());
+        console.log('🔐 User logged in:', this.isLoggedIn());
+        console.log('👤 Current user:', this.currentUser);
 
-        if (this.isLoggedIn() && avatarBtn && avatarImg) {
+        if (this.isLoggedIn() && this.currentUser) {
+            console.log('🟢 Showing authenticated UI');
+            
             if (loginBtn) loginBtn.style.display = 'none';
-            avatarBtn.style.display = 'block';
+            if (avatarBtn) avatarBtn.style.display = 'block';
 
-            if (this.currentUser.avatar) {
-                avatarImg.src = this.currentUser.avatar;
-            } else {
-                this.createInitialsAvatar(avatarImg, this.currentUser.name);
+            if (avatarImg) {
+                if (this.currentUser.avatar) {
+                    avatarImg.src = this.currentUser.avatar;
+                } else {
+                    this.createInitialsAvatar(avatarImg, this.currentUser.name);
+                }
             }
-            console.log('✅ Showing avatar, hiding login button');
+            
         } else {
+            console.log('🔴 Showing unauthenticated UI');
+            
             if (loginBtn) loginBtn.style.display = 'block';
             if (avatarBtn) avatarBtn.style.display = 'none';
-            console.log('✅ Showing login button, hiding avatar');
         }
     }
 
@@ -335,7 +210,49 @@ class AuthStateManager {
 
         imgElement.src = canvas.toDataURL();
     }
+
+    // Event listeners
+    setupEventListeners() {
+        const avatarBtn = document.getElementById('user-avatar-btn');
+        if (avatarBtn) {
+            avatarBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleDropdown();
+            });
+        }
+
+        document.addEventListener('click', (e) => {
+            const dropdown = document.querySelector('.user-dropdown-menu');
+            
+            if (e.target.id === 'logout-btn' || e.target.closest('#logout-btn')) {
+                e.preventDefault();
+                this.logout();
+            } else if (e.target.id === 'profile-btn' || e.target.closest('#profile-btn')) {
+                e.preventDefault();
+                window.location.href = 'profile.html';
+            } else if (dropdown && !dropdown.contains(e.target) && avatarBtn && !avatarBtn.contains(e.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+    }
+
+    toggleDropdown() {
+        const dropdown = document.querySelector('.user-dropdown-menu');
+        if (dropdown) {
+            dropdown.classList.toggle('show');
+        }
+    }
+
+    // Basic methods
+    isLoggedIn() {
+        return this.currentUser !== null;
+    }
+
+    getCurrentUser() {
+        return this.currentUser;
+    }
 }
 
 // Создаем глобальный экземпляр
 window.authState = new AuthStateManager();
+console.log('✅ AuthStateManager ready');
