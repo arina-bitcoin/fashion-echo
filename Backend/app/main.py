@@ -53,6 +53,9 @@ app.add_middleware(
     allow_headers=["*"],  # Разрешить все заголовки
 )
 
+from fastapi.staticfiles import StaticFiles
+
+app.mount("/static", StaticFiles(directory="file_storage"), name="static")
 
 # Добавьте обработчик ошибок для гарантии CORS headers
 @app.exception_handler(Exception)

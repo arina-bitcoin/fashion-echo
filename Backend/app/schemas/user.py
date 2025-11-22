@@ -1,27 +1,4 @@
-# from pydantic import BaseModel, EmailStr
-# from typing import Optional
-# from datetime import datetime
-
-# class UserBase(BaseModel):
-#     email: Optional[EmailStr] = None
-#     full_name: Optional[str] = None
-#     phone: Optional[str] = None
-
-# class UserCreate(UserBase):
-#     password: str
-
-# class UserUpdate(UserBase):
-#     pass
-
-# class UserResponse(UserBase):
-#     id: int
-#     is_active: bool
-#     created_at: datetime
-    
-#     class Config:
-#         from_attributes = True
-
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
 from typing import Optional
 from datetime import datetime
 
@@ -46,16 +23,17 @@ class UserUpdate(UserBase):
     phone: Optional[str] = None
 
 class UserResponse(UserBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
-    # email: str
-    # name: str
-    # phone: str
     is_active: bool
     is_verified: bool
+    avatar: Optional[str] = None
     created_at: datetime
+    last_login: Optional[datetime] = None
     
-    class Config:
-        from_attributes = True
+    # class Config:
+    #     from_attributes = True
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
@@ -66,3 +44,6 @@ class ChangePasswordRequest(BaseModel):
         if len(v) < 8:
             raise ValueError('New password must be at least 8 characters long')
         return v
+    
+class UserWithAvatarResponse(UserResponse):
+    avatar_url: Optional[str] = None

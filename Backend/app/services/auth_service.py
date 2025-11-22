@@ -1,16 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.orm import Session
-from app.core.database import get_db
-from app.core.security import (
+from sqlalchemy import select
+from Backend.app.core.database import get_db
+from Backend.app.core.security import (
     verify_password, 
     get_password_hash, 
     create_access_token, 
     create_refresh_token,
     verify_token
 )
-from app.models.user import User
-from app.schemas.token import Token, RefreshTokenRequest, LoginRequest  # ИМПОРТИРОВАТЬ LoginRequest
-from app.schemas.user import UserCreate, UserResponse
+from Backend.app.models.user import User
+from Backend.app.schemas.token import Token, RefreshTokenRequest, LoginRequest  # ИМПОРТИРОВАТЬ LoginRequest
+from Backend.app.schemas.user import UserCreate, UserResponse, UserWithAvatarResponse
+from Backend.app.dependencies import get_current_user
+from Backend.app.services.file_service import file_service
 
 router = APIRouter()
 
@@ -20,7 +23,10 @@ async def register(
     db: Session = Depends(get_db)
 ):
     # Проверка существования пользователя
-    existing_user = db.query(User).filter(User.email == user_data.email).first()
+    # existing_user = db.query(User).filter(User.email == user_data.email).first()
+    result = await db.execute(select(User).where(User.email == user_data.email))
+    existing_user = result.scalar_one_or_none()
+    
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -49,7 +55,9 @@ async def login(
     db: Session = Depends(get_db)
 ):
     # Поиск пользователя
-    user = db.query(User).filter(User.email == login_data.email).first()
+    result = await db.execute(select(User).where(User.email == login_data.email))
+    user = result.scalar_one_or_none()
+    # user = db.query(User).filter(User.email == login_data.email).first()
     if not user or not verify_password(login_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -71,6 +79,20 @@ async def login(
         refresh_token=refresh_token,
         token_type="bearer"
     )
+
+@router.post("/logout")
+async def logout(
+    response: Response,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Выход пользователя.
+    На клиенте нужно удалить токены из localStorage/sessionStorage.
+    """
+    # В JWT нет возможности инвалидировать токен на сервере без blacklist,
+    # поэтому просто возвращаем успешный ответ
+    return {"message": "Successfully logged out"}
+
 
 @router.post("/refresh", response_model=Token)
 async def refresh_token(
@@ -101,3 +123,16 @@ async def refresh_token(
         refresh_token=refresh_token,
         token_type="bearer"
     )
+
+@router.get("/me", response_model=UserWithAvatarResponse)
+async def get_current_user_info(
+    current_user: User = Depends(get_current_user)
+):
+    """Получение данных текущего пользователя"""
+    user_data = UserWithAvatarResponse.from_orm(current_user)
+    
+    # Добавляем URL аватара
+    if current_user.avatar:
+        user_data.avatar_url = file_service.get_avatar_url(current_user.avatar)
+    
+    return user_data

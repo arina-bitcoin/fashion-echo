@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+# from fastapi import APIRouter, Depends, HTTPException, status
+from Backend.app.schemas.user import UserCreate, UserResponse, UserWithAvatarResponse
+from fastapi import APIRouter, Depends, HTTPException, status, Response
+
 from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from Backend.app.core.database import get_db
@@ -10,8 +13,11 @@ from Backend.app.core.security import (
     verify_token
 )
 from Backend.app.models.user import User
-from Backend.app.schemas.token import Token, RefreshTokenRequest
+from Backend.app.schemas.token import Token, RefreshTokenRequest, LoginRequest
 from Backend.app.schemas.user import UserCreate, UserResponse
+from Backend.app.services.file_service import file_service
+from Backend.app.dependencies import get_current_user
+
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -21,34 +27,6 @@ router = APIRouter()
 security = HTTPBearer()
 
 @router.post("/register", response_model=UserResponse)
-# async def register(
-#     user_data: UserCreate,
-#     db: Session = Depends(get_db)
-# ):
-#     # Проверка существования пользователя
-#     existing_user = db.query(User).filter(User.email == user_data.email).first()
-#     if existing_user:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Email already registered"
-#         )
-    
-#     # Создание пользователя
-#     hashed_password = get_password_hash(user_data.password)
-#     db_user = User(
-#         email=user_data.email,
-#         hashed_password=hashed_password,
-#         full_name=user_data.full_name
-#     )
-    
-#     db.add(db_user)
-#     db.commit()
-#     db.refresh(db_user)
-    
-#     return db_user
-
-# Вместо этого
-# existing_user = db.query(User).filter(User.email == user_data.email).first()
 
 # Используйте это:
 async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
@@ -158,15 +136,16 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
 #     )
 @router.post("/login", response_model=Token)
 async def login(
-    email: str,
-    password: str,
+    # email: str,
+    # password: str,
+    login_data: LoginRequest,
     db: AsyncSession = Depends(get_db)
 ):
     # Поиск пользователя
-    result = await db.execute(select(User).where(User.email == email))
+    result = await db.execute(select(User).where(User.email == login_data.email))
     user = result.scalar_one_or_none()
     
-    if not user or not verify_password(password, user.hashed_password):
+    if not user or not verify_password(login_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"
@@ -179,13 +158,9 @@ async def login(
         )
     
     # Обновляем last_login
-    # user.last_login = datetime.now()
-    # await db.commit()
-    # await db.refresh(user)
-
-    # Обновляем last_login (используем прямой подход без refresh)
     user.last_login = datetime.now()
     await db.commit()
+    # await db.refresh(user)
     
     # Получаем обновленные данные пользователя
     result = await db.execute(select(User).where(User.id == user.id))
@@ -233,7 +208,7 @@ async def refresh_token(
         token_type="bearer"
     )
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=UserWithAvatarResponse)
 async def get_current_user(
     db: AsyncSession = Depends(get_db),
     token: str = Depends(security)
@@ -264,3 +239,29 @@ async def get_current_user(
         is_verified=user.is_verified,
         created_at=user.created_at
     )
+
+# @router.get("/me", response_model=UserWithAvatarResponse)
+# async def get_current_user_info(
+#     current_user: User = Depends(get_current_user)
+# ):
+#     """Получение данных текущего пользователя"""
+#     user_data = UserWithAvatarResponse.from_orm(current_user)
+    
+#     # Добавляем URL аватара
+#     if current_user.avatar:
+#         user_data.avatar_url = file_service.get_avatar_url(current_user.avatar)
+    
+#     return user_data
+
+@router.post("/logout")
+async def logout(
+    response: Response,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Выход пользователя.
+    На клиенте нужно удалить токены из localStorage/sessionStorage.
+    """
+    # В JWT нет возможности инвалидировать токен на сервере без blacklist,
+    # поэтому просто возвращаем успешный ответ
+    return {"message": "Successfully logged out"}

@@ -65,16 +65,24 @@ class ApiService {
     async login(credentials) {
         console.log('🔐 Logging in with:', { email: credentials.email, password: '***' });
         
-        // РАБОЧИЙ ФОРМАТ: POST с query parameters в URL
-        const queryParams = new URLSearchParams({
-            email: credentials.email,
-            password: credentials.password
-        }).toString();
+        // // РАБОЧИЙ ФОРМАТ: POST с query parameters в URL
+        // const queryParams = new URLSearchParams({
+        //     email: credentials.email,
+        //     password: credentials.password
+        // }).toString();
         
-        const endpoint = `/auth/login?${queryParams}`;
+        // const endpoint = `/auth/login?${queryParams}`;
         
-        return this.request(endpoint, {
-            method: 'POST'
+        // return this.request(endpoint, {
+        //     method: 'POST'
+        // });
+        // ПРАВИЛЬНЫЙ ФОРМАТ: POST с JSON в теле запроса
+        return this.request('/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({
+                email: credentials.email,
+                password: credentials.password
+            })
         });
     }
 
