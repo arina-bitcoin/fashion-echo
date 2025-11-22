@@ -118,10 +118,53 @@ class ApiService {
         });
     }
 
+// Avatar endpoints
+    async uploadAvatar(file) {
+        console.log('📤 Uploading avatar file:', file.name);
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const url = `${this.BASE_URL}/users/me/avatar`;
+        
+        const config = {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${this.token}`,
+            },
+            body: formData,
+        };
+
+        try {
+            console.log(`🔄 API POST Request: ${url}`);
+            const response = await fetch(url, config);
+            
+            console.log(`📨 Response: ${response.status} for avatar upload`);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('❌ Avatar upload error:', error);
+            throw error;
+        }
+    }
+
+    async deleteAvatar() {
+        console.log('🗑️ Deleting avatar...');
+        return this.request('/users/me/avatar', {
+            method: 'DELETE'
+        });
+    }
+
     // Token management
     setToken(token) {
         this.token = token;
         localStorage.setItem('auth_token', token);
+        localStorage.removeItem('fashioneco_current_user');
         console.log('🔑 Token saved');
     }
 
@@ -129,6 +172,10 @@ class ApiService {
         this.token = null;
         localStorage.removeItem('auth_token');
         console.log('🔑 Token cleared');
+    }
+
+    isAuthenticated() {
+        return !!this.token;
     }
 }
 

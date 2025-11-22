@@ -1,4 +1,868 @@
-// profile.js - Версия без проверки авторизации
+// // profile.js - Версия без проверки авторизации
+// class UserProfile {
+//     constructor() {
+//         console.log('🔧 UserProfile constructor started');
+        
+//         try {
+//             this.originalValues = {};
+//             this.isEditing = false;
+//             this.hasCustomAvatar = false;
+            
+//             this.elements = {
+//                 profileForm: document.getElementById('profile-form'),
+//                 editButtons: document.querySelectorAll('.edit-btn'),
+//                 cancelBtn: document.getElementById('cancel-btn'),
+//                 saveBtn: document.getElementById('save-btn'),
+//                 backBtn: document.getElementById('back-btn'),
+//                 userAvatar: document.getElementById('user-avatar'),
+//                 avatarImage: document.getElementById('avatar-image'),
+//                 avatarInitials: document.getElementById('avatar-initials'),
+//                 avatarInput: document.getElementById('avatar-input'),
+//                 changeAvatarBtn: document.getElementById('change-avatar-btn'),
+//                 removeAvatarBtn: document.getElementById('remove-avatar-btn'),
+//                 userNameInput: document.getElementById('user-name'),
+//                 userEmailInput: document.getElementById('user-email'),
+//                 userPhoneInput: document.getElementById('user-phone')
+//             };
+
+//             console.log('🔧 Elements initialized');
+//             this.initializeElements();
+//             this.attachEventListeners();
+//             this.loadUserData();
+            
+//         } catch (error) {
+//             console.error('❌ Error in UserProfile constructor:', error);
+//             this.showErrorMessage('Ошибка инициализации профиля');
+//         }
+//     }
+
+//     initializeElements() {
+//         console.log('🔧 Initializing elements...');
+        
+//         // Проверяем обязательные элементы
+//         const requiredElements = ['profileForm', 'userNameInput', 'userEmailInput', 'userPhoneInput'];
+        
+//         for (const key of requiredElements) {
+//             if (!this.elements[key]) {
+//                 console.error(`❌ Required element not found: ${key}`);
+//             }
+//         }
+        
+//         console.log('✅ Elements initialized');
+//     }
+
+//     // loadUserData() {
+//     //     console.log('🔧 Loading user data...');
+        
+//     //     try {
+//     //         let currentUser = null;
+            
+//     //         // Пробуем получить пользователя из authState
+//     //         if (window.authState && typeof window.authState.getCurrentUser === 'function') {
+//     //             currentUser = window.authState.getCurrentUser();
+//     //             console.log('👤 User from authState:', currentUser);
+//     //         }
+            
+//     //         // Если не получилось, пробуем localStorage
+//     //         if (!currentUser) {
+//     //             try {
+//     //                 const userData = localStorage.getItem('fashioneco_current_user');
+//     //                 if (userData) {
+//     //                     currentUser = JSON.parse(userData);
+//     //                     console.log('👤 User from localStorage:', currentUser);
+//     //                 }
+//     //             } catch (error) {
+//     //                 console.error('Error parsing localStorage user:', error);
+//     //             }
+//     //         }
+            
+//     //         // Если все еще нет пользователя, создаем тестового
+//     //         if (!currentUser) {
+//     //             currentUser = this.createTestUser();
+//     //             console.log('👤 Created test user:', currentUser);
+//     //         }
+            
+//     //         this.setProfileData(currentUser);
+//     //         console.log('✅ User data loaded');
+            
+//     //     } catch (error) {
+//     //         console.error('❌ Error loading user data:', error);
+//     //         this.setDefaultData();
+//     //     }
+//     // }
+//     async loadUserData() {
+//         console.log('🔧 Loading user data...');
+        
+//         try {
+//             // Пробуем загрузить с сервера если пользователь авторизован
+//             if (window.apiService && window.apiService.isAuthenticated()) {
+//                 try {
+//                     const userData = await window.apiService.getCurrentUser();
+//                     console.log('👤 User data from server:', userData);
+//                     this.setProfileData(userData);
+//                     this.saveUserToLocalStorage(userData);
+//                     console.log('✅ User data loaded from server');
+//                     return;
+//                 } catch (error) {
+//                     console.error('❌ Error loading from server:', error);
+//                 }
+//             }
+            
+//             // Fallback на localStorage
+//             this.loadLocalUserData();
+            
+//         } catch (error) {
+//             console.error('❌ Error loading user data:', error);
+//             this.setDefaultData();
+//         }
+//     }
+
+//     loadLocalUserData() {
+//         try {
+//             const userData = localStorage.getItem('fashioneco_current_user');
+//             if (userData) {
+//                 const user = JSON.parse(userData);
+//                 console.log('👤 User from localStorage:', user);
+//                 this.setProfileData(user);
+//             } else {
+//                 this.createTestUser();
+//             }
+//         } catch (error) {
+//             console.error('Error loading local user data:', error);
+//             this.setDefaultData();
+//         }
+//     }
+
+
+//     createTestUser() {
+//         const testUser = {
+//             name: 'Иван Иванов',
+//             email: 'ivan@example.com',
+//             phone: '+7 (999) 123-45-67',
+//             avatar: null,
+//             createdAt: new Date().toISOString()
+//         };
+        
+//         // Сохраняем тестового пользователя в localStorage
+//         // localStorage.setItem('fashioneco_current_user', JSON.stringify(testUser));
+//         this.saveUserToLocalStorage(testUser);
+//         this.setProfileData(testUser);
+//         console.log('👤 Created test user');
+
+//         return testUser;
+//     }
+
+//     setDefaultData() {
+//         console.log('🔧 Setting default data');
+//         if (this.elements.userNameInput) this.elements.userNameInput.value = 'Тестовый пользователь';
+//         if (this.elements.userEmailInput) this.elements.userEmailInput.value = 'test@example.com';
+//         if (this.elements.userPhoneInput) this.elements.userPhoneInput.value = '+7 (999) 999-99-99';
+//         this.updateAvatar();
+//     }
+
+//     attachEventListeners() {
+//         console.log('🔧 Attaching event listeners...');
+
+//         try {
+//             // Обработчики для кнопок редактирования полей
+//             if (this.elements.editButtons && this.elements.editButtons.length > 0) {
+//                 this.elements.editButtons.forEach(button => {
+//                     button.addEventListener('click', (event) => {
+//                         const fieldId = event.target.getAttribute('data-field');
+//                         console.log('✏️ Edit button clicked for:', fieldId);
+//                         if (fieldId) {
+//                             this.enableEditing(fieldId);
+//                         }
+//                     });
+//                 });
+//             }
+
+//             // Обработчик отмены редактирования
+//             if (this.elements.cancelBtn) {
+//                 this.elements.cancelBtn.addEventListener('click', () => {
+//                     console.log('❌ Cancel button clicked');
+//                     this.cancelEditing();
+//                 });
+//             }
+
+//             // Обработчик сохранения формы
+//             if (this.elements.profileForm) {
+//                 this.elements.profileForm.addEventListener('submit', (event) => {
+//                     event.preventDefault();
+//                     console.log('💾 Save form submitted');
+//                     this.saveProfile();
+//                 });
+//             }
+
+//             // Обработчик кнопки "Назад"
+//             if (this.elements.backBtn) {
+//                 this.elements.backBtn.addEventListener('click', () => {
+//                     console.log('⬅️ Back button clicked');
+//                     this.handleBackButton();
+//                 });
+//             }
+
+//             // Обработчики для аватара
+//             if (this.elements.userAvatar) {
+//                 this.elements.userAvatar.addEventListener('click', () => {
+//                     console.log('🖼️ Avatar clicked');
+//                     if (this.elements.avatarInput) {
+//                         this.elements.avatarInput.click();
+//                     }
+//                 });
+//             }
+
+//             if (this.elements.changeAvatarBtn) {
+//                 this.elements.changeAvatarBtn.addEventListener('click', () => {
+//                     console.log('📷 Change avatar button clicked');
+//                     if (this.elements.avatarInput) {
+//                         this.elements.avatarInput.click();
+//                     }
+//                 });
+//             }
+
+//             // Обработчик загрузки файла
+//             if (this.elements.avatarInput) {
+//                 this.elements.avatarInput.addEventListener('change', (event) => {
+//                     console.log('📁 File selected');
+//                     this.handleAvatarUpload(event);
+//                 });
+//             }
+
+//             // Обработчик удаления аватара
+//             if (this.elements.removeAvatarBtn) {
+//                 this.elements.removeAvatarBtn.addEventListener('click', () => {
+//                     console.log('🗑️ Remove avatar clicked');
+//                     this.removeAvatar();
+//                 });
+//             }
+
+//             console.log('✅ All event listeners attached');
+//         } catch (error) {
+//             console.error('❌ Error attaching event listeners:', error);
+//         }
+//     }
+
+//     async handleAvatarUpload(event) {
+//         const fileInput = event.target;
+//         if (!fileInput.files || fileInput.files.length === 0) {
+//             return;
+//         }
+
+//         const file = fileInput.files[0];
+//         console.log('📤 Uploading file:', file.name);
+
+//         // Проверка типа файла
+//         if (!file.type.startsWith('image/')) {
+//             this.showErrorMessage('Пожалуйста, выберите файл изображения');
+//             return;
+//         }
+
+//         // Проверка размера файла (макс. 5MB)
+//         if (file.size > 5 * 1024 * 1024) {
+//             this.showErrorMessage('Размер файла не должен превышать 5MB');
+//             return;
+//         }
+
+//         // try {
+//         //     this.showLoading('Загрузка фото...');
+
+//         //     // Чтение файла и создание URL
+//         //     const imageUrl = await this.readFileAsDataURL(file);
+//         //     this.setAvatarImage(imageUrl);
+//         //     this.hasCustomAvatar = true;
+            
+//         //     // Сохраняем аватар
+//         //     await this.saveAvatarToLocalStorage(imageUrl);
+            
+//         //     this.hideLoading();
+//         //     this.showSuccessMessage('Фото профиля успешно обновлено!');
+//         // } catch (error) {
+//         //     this.hideLoading();
+//         //     console.error('Error uploading avatar:', error);
+//         //     this.showErrorMessage('Ошибка при загрузке фото');
+//         // }
+
+//         try {
+//             this.showLoading('Загрузка фото...');
+
+//             let avatarUrl;
+            
+//             // Если пользователь авторизован, загружаем на сервер
+//             if (window.apiService.isAuthenticated()) {
+//                 const response = await window.apiService.uploadAvatar(file);
+//                 console.log('✅ Avatar upload response:', response);
+                
+//                 avatarUrl = response.avatar_url || 
+//                            (response.avatar ? `http://localhost:8000/static/${response.avatar}` : null);
+//             } else {
+//                 // Локальная загрузка (для демо)
+//                 avatarUrl = await this.readFileAsDataURL(file);
+//             }
+
+//             if (avatarUrl) {
+//                 this.setAvatarImage(avatarUrl);
+//                 this.hasCustomAvatar = true;
+                
+//                 // Сохраняем в localStorage
+//                 await this.saveAvatarToLocalStorage(avatarUrl);
+                
+//                 this.hideLoading();
+//                 this.showSuccessMessage('Фото профиля успешно обновлено!');
+//             }
+
+//         } catch (error) {
+//             this.hideLoading();
+//             console.error('Error uploading avatar:', error);
+//             this.showErrorMessage('Ошибка при загрузке фото: ' + error.message);
+//         } finally {
+//             // Сбрасываем input
+//             fileInput.value = '';
+//         }
+//     }
+
+//     readFileAsDataURL(file) {
+//         return new Promise((resolve, reject) => {
+//             const reader = new FileReader();
+//             reader.onload = (e) => {
+//                 if (e.target && e.target.result) {
+//                     resolve(e.target.result);
+//                 } else {
+//                     reject(new Error('Не удалось прочитать файл'));
+//                 }
+//             };
+//             reader.onerror = () => reject(new Error('Ошибка чтения файла'));
+//             reader.readAsDataURL(file);
+//         });
+//     }
+
+//     // async saveAvatarToLocalStorage(avatarUrl) {
+//     //     return new Promise((resolve) => {
+//     //         setTimeout(() => {
+//     //             try {
+//     //                 const userData = localStorage.getItem('fashioneco_current_user');
+//     //                 if (userData) {
+//     //                     const user = JSON.parse(userData);
+//     //                     user.avatar = avatarUrl;
+//     //                     localStorage.setItem('fashioneco_current_user', JSON.stringify(user));
+//     //                     console.log('✅ Avatar saved to localStorage');
+//     //                 }
+//     //                 resolve(true);
+//     //             } catch (error) {
+//     //                 console.error('Error saving avatar to localStorage:', error);
+//     //                 resolve(false);
+//     //             }
+//     //         }, 500);
+//     //     });
+
+//     async saveAvatarToLocalStorage(avatarUrl) {
+//         try {
+//             const userData = localStorage.getItem('fashioneco_current_user');
+//             if (userData) {
+//                 const user = JSON.parse(userData);
+//                 user.avatar = avatarUrl;
+//                 localStorage.setItem('fashioneco_current_user', JSON.stringify(user));
+//                 console.log('✅ Avatar saved to localStorage');
+//             }
+//         } catch (error) {
+//             console.error('Error saving avatar to localStorage:', error);
+//         }
+//     }
+//     }
+
+//     setAvatarImage(imageUrl) {
+//         console.log('🖼️ Setting avatar image');
+//         if (this.elements.avatarImage) {
+//             this.elements.avatarImage.src = imageUrl;
+//             this.elements.avatarImage.classList.remove('hidden');
+//         }
+//         if (this.elements.avatarInitials) {
+//             this.elements.avatarInitials.classList.add('hidden');
+//         }
+//     }
+
+//     // removeAvatar() {
+//     //     console.log('🗑️ Removing avatar');
+//     //     if (this.elements.avatarImage) {
+//     //         this.elements.avatarImage.src = '';
+//     //         this.elements.avatarImage.classList.add('hidden');
+//     //     }
+//     //     if (this.elements.avatarInitials) {
+//     //         this.elements.avatarInitials.classList.remove('hidden');
+//     //     }
+//     //     this.hasCustomAvatar = false;
+//     //     this.updateAvatar();
+        
+//     //     this.saveAvatarToLocalStorage(null);
+//     //     this.showSuccessMessage('Фото профиля удалено');
+//     // }
+
+//     async removeAvatar() {
+//         console.log('🗑️ Removing avatar...');
+        
+//         try {
+//             this.showLoading('Удаление фото...');
+            
+//             // Если пользователь авторизован, удаляем с сервера
+//             if (window.apiService.isAuthenticated()) {
+//                 await window.apiService.deleteAvatar();
+//                 console.log('✅ Avatar deleted from server');
+//             }
+            
+//             // Обновляем интерфейс
+//             this.resetAvatarToDefault();
+            
+//             // Обновляем localStorage
+//             await this.saveAvatarToLocalStorage(null);
+            
+//             this.hideLoading();
+//             this.showSuccessMessage('Фото профиля удалено');
+            
+//         } catch (error) {
+//             this.hideLoading();
+//             console.error('Error deleting avatar:', error);
+//             this.showErrorMessage('Ошибка при удалении фото: ' + error.message);
+//         }
+//     }
+
+//     resetAvatarToDefault() {
+//         console.log('🔄 Resetting avatar to default');
+        
+//         if (this.elements.avatarImage) {
+//             this.elements.avatarImage.src = '';
+//             this.elements.avatarImage.classList.add('hidden');
+//         }
+//         if (this.elements.avatarInitials) {
+//             this.elements.avatarInitials.classList.remove('hidden');
+//         }
+        
+//         this.hasCustomAvatar = false;
+//         this.updateAvatar();
+//     }
+
+//     enableEditing(fieldId) {
+//         const field = document.getElementById(fieldId);
+//         if (!field) {
+//             console.error('Field not found:', fieldId);
+//             return;
+//         }
+
+//         console.log('🔓 Enabling editing for:', fieldId);
+
+//         // Сохраняем исходное значение
+//         this.originalValues[fieldId] = field.value;
+
+//         // Делаем поле редактируемым
+//         field.readOnly = false;
+//         field.focus();
+//         field.style.background = '#fff';
+//         field.style.border = '2px solid var(--primary-color)';
+//         field.style.borderRadius = '8px';
+
+//         // Показываем кнопку отмены
+//         if (this.elements.cancelBtn) {
+//             this.elements.cancelBtn.style.display = 'inline-block';
+//         }
+
+//         this.isEditing = true;
+//     }
+
+//     cancelEditing() {
+//         console.log('↩️ Canceling editing');
+
+//         // Восстанавливаем исходные значения
+//         for (const fieldId in this.originalValues) {
+//             const field = document.getElementById(fieldId);
+//             if (field) {
+//                 field.value = this.originalValues[fieldId];
+//                 field.readOnly = true;
+//                 field.style.background = '';
+//                 field.style.border = '';
+//             }
+//         }
+
+//         // Очищаем сохраненные значения
+//         this.originalValues = {};
+
+//         // Скрываем кнопку отмены
+//         if (this.elements.cancelBtn) {
+//             this.elements.cancelBtn.style.display = 'none';
+//         }
+
+//         this.isEditing = false;
+//     }
+
+//     async saveProfile() {
+//         console.log('💾 Saving profile...');
+
+//         try {
+//             // Показываем индикатор загрузки
+//             this.showLoading('Сохранение данных...');
+
+//             // Собираем данные формы
+//             const formData = {
+//                 name: this.elements.userNameInput.value.trim(),
+//                 email: this.elements.userEmailInput.value.trim(),
+//                 phone: this.elements.userPhoneInput.value.trim(),
+//                 avatar: this.hasCustomAvatar && this.elements.avatarImage ? this.elements.avatarImage.src : null
+//             };
+
+//             console.log('📝 Form data to save:', formData);
+
+//             // Валидация данных
+//             if (!this.validateFormData(formData)) {
+//                 this.hideLoading();
+//                 return;
+//             }
+
+//             await this.saveProfileChanges(formData);
+
+//             // Блокируем поля после сохранения
+//             this.setFieldsReadOnly(true);
+
+//             // Скрываем кнопку отмены
+//             if (this.elements.cancelBtn) {
+//                 this.elements.cancelBtn.style.display = 'none';
+//             }
+
+//             // Очищаем сохраненные значения
+//             this.originalValues = {};
+//             this.isEditing = false;
+
+//             this.hideLoading();
+//             this.showSuccessMessage('Данные успешно сохранены!');
+//         } catch (error) {
+//             this.hideLoading();
+//             this.showErrorMessage('Ошибка при сохранении данных: ' + error.message);
+//             console.error('Save error:', error);
+//         }
+//     }
+
+//     async saveProfileChanges(formData = null) {
+//         try {
+//             const dataToSave = formData || {
+//                 name: this.elements.userNameInput.value.trim(),
+//                 email: this.elements.userEmailInput.value.trim(),
+//                 phone: this.elements.userPhoneInput.value.trim(),
+//                 avatar: this.hasCustomAvatar && this.elements.avatarImage ? this.elements.avatarImage.src : null
+//             };
+
+//             console.log('💾 Saving profile data:', dataToSave);
+
+//             // Сохраняем в localStorage
+//             await this.saveToLocalStorage(dataToSave);
+//             console.log('✅ Profile data saved');
+
+//             // Обновляем аватар
+//             this.updateAvatar();
+
+//             return true;
+
+//         } catch (error) {
+//             console.error('❌ Error in saveProfileChanges:', error);
+//             throw error;
+//         }
+//     }
+
+//     // Сохранение в localStorage
+//     async saveToLocalStorage(profileData) {
+//         return new Promise((resolve, reject) => {
+//             setTimeout(() => {
+//                 try {
+//                     const userData = localStorage.getItem('fashioneco_current_user');
+//                     if (userData) {
+//                         const user = JSON.parse(userData);
+//                         const updatedUser = {
+//                             ...user,
+//                             ...profileData,
+//                             updatedAt: new Date().toISOString()
+//                         };
+                        
+//                         localStorage.setItem('fashioneco_current_user', JSON.stringify(updatedUser));
+//                         console.log('✅ User data saved to localStorage');
+//                         resolve(true);
+//                     } else {
+//                         // Создаем нового пользователя если нет
+//                         const newUser = {
+//                             ...profileData,
+//                             createdAt: new Date().toISOString(),
+//                             updatedAt: new Date().toISOString()
+//                         };
+//                         localStorage.setItem('fashioneco_current_user', JSON.stringify(newUser));
+//                         console.log('✅ New user created in localStorage');
+//                         resolve(true);
+//                     }
+//                 } catch (error) {
+//                     console.error('Error saving to localStorage:', error);
+//                     reject(error);
+//                 }
+//             }, 1000);
+//         });
+//     }
+
+//     validateFormData(data) {
+//         console.log('🔍 Validating form data...');
+
+//         if (!data.name || !data.name.trim()) {
+//             this.showFieldError('user-name', 'Введите имя');
+//             return false;
+//         }
+
+//         if (data.name.trim().length < 2) {
+//             this.showFieldError('user-name', 'Имя должно содержать至少 2 символа');
+//             return false;
+//         }
+
+//         if (!data.email || !this.isValidEmail(data.email)) {
+//             this.showFieldError('user-email', 'Введите корректный email');
+//             return false;
+//         }
+
+//         if (!data.phone || !this.isValidPhone(data.phone)) {
+//             this.showFieldError('user-phone', 'Введите корректный номер телефона');
+//             return false;
+//         }
+
+//         console.log('✅ Form data is valid');
+//         return true;
+//     }
+
+//     isValidEmail(email) {
+//         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+//         return emailRegex.test(email);
+//     }
+
+//     isValidPhone(phone) {
+//         const phoneRegex = /^[\+]?[0-9\s\-\(\)]{10,}$/;
+//         return phoneRegex.test(phone.replace(/\s/g, ''));
+//     }
+
+//     showFieldError(fieldId, message) {
+//         console.error('❌ Field error:', fieldId, message);
+//         const field = document.getElementById(fieldId);
+//         if (field) {
+//             field.style.boxShadow = '0 0 0 2px rgba(229, 62, 62, 0.5)';
+//             field.style.borderColor = '#e53e3e';
+            
+//             setTimeout(() => {
+//                 field.style.boxShadow = '';
+//                 field.style.borderColor = '';
+//             }, 3000);
+//         }
+//         this.showErrorMessage(message);
+//     }
+
+//     updateAvatar() {
+//         const fullName = this.elements.userNameInput.value;
+//         const names = fullName.split(' ').filter(name => name.trim() !== '');
+//         let initials = '';
+
+//         if (names.length >= 2) {
+//             initials = names[0].charAt(0) + names[names.length - 1].charAt(0);
+//         } else if (names.length === 1) {
+//             initials = names[0].charAt(0);
+//         } else {
+//             initials = 'U';
+//         }
+
+//         console.log('👤 Updating avatar initials:', initials);
+//         if (this.elements.avatarInitials) {
+//             this.elements.avatarInitials.textContent = initials.toUpperCase();
+//         }
+//     }
+
+//     setFieldsReadOnly(readonly) {
+//         const inputs = document.querySelectorAll('#profile-form .input');
+//         inputs.forEach(input => {
+//             input.readOnly = readonly;
+//             input.style.background = readonly ? 'var(--secondary-color)' : '#fff';
+//             input.style.border = readonly ? 'none' : '2px solid var(--primary-color)';
+//             input.style.borderRadius = readonly ? '9999px' : '8px';
+//         });
+//     }
+
+//     showLoading(message = 'Загрузка...') {
+//         let loadingEl = document.getElementById('profile-loading');
+//         if (!loadingEl) {
+//             loadingEl = document.createElement('div');
+//             loadingEl.id = 'profile-loading';
+//             loadingEl.style.cssText = `
+//                 position: fixed;
+//                 top: 50%;
+//                 left: 50%;
+//                 transform: translate(-50%, -50%);
+//                 background: rgba(0,0,0,0.8);
+//                 color: white;
+//                 padding: 20px 30px;
+//                 border-radius: 12px;
+//                 z-index: 10000;
+//                 font-weight: 500;
+//                 display: flex;
+//                 align-items: center;
+//                 gap: 10px;
+//             `;
+//             document.body.appendChild(loadingEl);
+//         }
+        
+//         loadingEl.innerHTML = `
+//             <div style="width: 20px; height: 20px; border: 2px solid #fff; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+//             ${message}
+//         `;
+        
+//         const style = document.createElement('style');
+//         style.textContent = `@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`;
+//         document.head.appendChild(style);
+        
+//         loadingEl.style.display = 'flex';
+//     }
+
+//     hideLoading() {
+//         const loadingEl = document.getElementById('profile-loading');
+//         if (loadingEl) {
+//             loadingEl.style.display = 'none';
+//         }
+//     }
+
+//     showSuccessMessage(message) {
+//         console.log('✅ Success:', message);
+//         this.showNotification(message, 'success');
+//     }
+
+//     showErrorMessage(message) {
+//         console.error('❌ Error:', message);
+//         this.showNotification(message, 'error');
+//     }
+
+//     showNotification(message, type = 'info') {
+//         const notification = document.createElement('div');
+//         const backgroundColor = type === 'success' ? '#4CAF50' : 
+//                               type === 'error' ? '#f44336' : '#2196F3';
+        
+//         notification.style.cssText = `
+//             position: fixed;
+//             top: 20px;
+//             right: 20px;
+//             background: ${backgroundColor};
+//             color: white;
+//             padding: 15px 20px;
+//             border-radius: 8px;
+//             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+//             z-index: 10000;
+//             font-weight: 500;
+//             max-width: 300px;
+//             animation: slideIn 0.3s ease-out;
+//         `;
+        
+//         notification.textContent = message;
+//         document.body.appendChild(notification);
+        
+//         const style = document.createElement('style');
+//         style.textContent = `
+//             @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+//             @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+//         `;
+//         document.head.appendChild(style);
+        
+//         setTimeout(() => {
+//             if (notification.parentNode) {
+//                 notification.style.animation = 'slideOut 0.3s ease-in';
+//                 setTimeout(() => {
+//                     if (notification.parentNode) {
+//                         document.body.removeChild(notification);
+//                     }
+//                 }, 300);
+//             }
+//         }, 3000);
+//     }
+
+//     handleBackButton() {
+//         if (this.isEditing) {
+//             if (confirm('У вас есть несохраненные изменения. Вы уверены, что хотите выйти?')) {
+//                 window.location.href = 'index.html';
+//             }
+//         } else {
+//             window.location.href = 'index.html';
+//         }
+//     }
+
+//     setProfileData(data) {
+//         console.log('🔧 Setting profile data:', data);
+        
+//         if (data.name && this.elements.userNameInput) this.elements.userNameInput.value = data.name;
+//         if (data.email && this.elements.userEmailInput) this.elements.userEmailInput.value = data.email;
+//         if (data.phone && this.elements.userPhoneInput) this.elements.userPhoneInput.value = data.phone;
+        
+//         if (data.avatar && this.elements.avatarImage) {
+//             this.setAvatarImage(data.avatar);
+//             this.hasCustomAvatar = true;
+//         } else {
+//             this.hasCustomAvatar = false;
+//             if (this.elements.avatarImage) {
+//                 this.elements.avatarImage.classList.add('hidden');
+//             }
+//             if (this.elements.avatarInitials) {
+//                 this.elements.avatarInitials.classList.remove('hidden');
+//             }
+//         }
+        
+//         this.updateAvatar();
+//         this.setFieldsReadOnly(true);
+//     }
+// }
+
+// // ВАЖНО: УБИРАЕМ ВСЮ ПРОВЕРКУ АВТОРИЗАЦИИ
+// document.addEventListener('DOMContentLoaded', () => {
+//     console.log('🔧 DOM Content Loaded - NO AUTH CHECK');
+    
+//     // Сразу создаем тестового пользователя если его нет
+//     if (!localStorage.getItem('fashioneco_current_user')) {
+//         const testUser = {
+//             name: 'Тестовый Пользователь',
+//             email: 'test@example.com',
+//             phone: '+7 (999) 999-99-99',
+//             avatar: null,
+//             createdAt: new Date().toISOString()
+//         };
+//         localStorage.setItem('fashioneco_current_user', JSON.stringify(testUser));
+//         console.log('✅ Test user created');
+//     }
+
+//     try {
+//         const userProfile = new UserProfile();
+//         window.userProfile = userProfile;
+//         console.log('✅ UserProfile initialized successfully');
+//     } catch (error) {
+//         console.error('❌ Error initializing UserProfile:', error);
+        
+//         // Показываем ошибку на странице
+//         const errorDiv = document.createElement('div');
+//         errorDiv.style.cssText = `
+//             position: fixed;
+//             top: 50%;
+//             left: 50%;
+//             transform: translate(-50%, -50%);
+//             background: #f8d7da;
+//             color: #721c24;
+//             padding: 20px;
+//             border-radius: 8px;
+//             border: 1px solid #f5c6cb;
+//             text-align: center;
+//             z-index: 10000;
+//         `;
+//         errorDiv.innerHTML = `
+//             <h3>Ошибка загрузки профиля</h3>
+//             <p>${error.message}</p>
+//             <button onclick="location.reload()" style="margin-top: 10px; padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+//                 Перезагрузить
+//             </button>
+//         `;
+//         document.body.appendChild(errorDiv);
+//     }
+// });
+
+// console.log('🔧 profile.js loaded - NO AUTHENTICATION CHECK');
+
+// Frontend/profile.js - ФИНАЛЬНАЯ ВЕРСИЯ
 class UserProfile {
     constructor() {
         console.log('🔧 UserProfile constructor started');
@@ -39,7 +903,6 @@ class UserProfile {
     initializeElements() {
         console.log('🔧 Initializing elements...');
         
-        // Проверяем обязательные элементы
         const requiredElements = ['profileForm', 'userNameInput', 'userEmailInput', 'userPhoneInput'];
         
         for (const key of requiredElements) {
@@ -51,42 +914,45 @@ class UserProfile {
         console.log('✅ Elements initialized');
     }
 
-    loadUserData() {
+    async loadUserData() {
         console.log('🔧 Loading user data...');
         
         try {
-            let currentUser = null;
-            
-            // Пробуем получить пользователя из authState
-            if (window.authState && typeof window.authState.getCurrentUser === 'function') {
-                currentUser = window.authState.getCurrentUser();
-                console.log('👤 User from authState:', currentUser);
-            }
-            
-            // Если не получилось, пробуем localStorage
-            if (!currentUser) {
+            // Пробуем загрузить с сервера если пользователь авторизован
+            if (window.apiService && window.apiService.isAuthenticated()) {
                 try {
-                    const userData = localStorage.getItem('fashioneco_current_user');
-                    if (userData) {
-                        currentUser = JSON.parse(userData);
-                        console.log('👤 User from localStorage:', currentUser);
-                    }
+                    const userData = await window.apiService.getCurrentUser();
+                    console.log('👤 User data from server:', userData);
+                    this.setProfileData(userData);
+                    this.saveUserToLocalStorage(userData);
+                    console.log('✅ User data loaded from server');
+                    return;
                 } catch (error) {
-                    console.error('Error parsing localStorage user:', error);
+                    console.error('❌ Error loading from server:', error);
                 }
             }
             
-            // Если все еще нет пользователя, создаем тестового
-            if (!currentUser) {
-                currentUser = this.createTestUser();
-                console.log('👤 Created test user:', currentUser);
-            }
-            
-            this.setProfileData(currentUser);
-            console.log('✅ User data loaded');
+            // Fallback на localStorage
+            this.loadLocalUserData();
             
         } catch (error) {
             console.error('❌ Error loading user data:', error);
+            this.setDefaultData();
+        }
+    }
+
+    loadLocalUserData() {
+        try {
+            const userData = localStorage.getItem('fashioneco_current_user');
+            if (userData) {
+                const user = JSON.parse(userData);
+                console.log('👤 User from localStorage:', user);
+                this.setProfileData(user);
+            } else {
+                this.createTestUser();
+            }
+        } catch (error) {
+            console.error('Error loading local user data:', error);
             this.setDefaultData();
         }
     }
@@ -100,8 +966,9 @@ class UserProfile {
             createdAt: new Date().toISOString()
         };
         
-        // Сохраняем тестового пользователя в localStorage
-        localStorage.setItem('fashioneco_current_user', JSON.stringify(testUser));
+        this.saveUserToLocalStorage(testUser);
+        this.setProfileData(testUser);
+        console.log('👤 Created test user');
         
         return testUser;
     }
@@ -221,20 +1088,38 @@ class UserProfile {
         try {
             this.showLoading('Загрузка фото...');
 
-            // Чтение файла и создание URL
-            const imageUrl = await this.readFileAsDataURL(file);
-            this.setAvatarImage(imageUrl);
-            this.hasCustomAvatar = true;
+            let avatarUrl;
             
-            // Сохраняем аватар
-            await this.saveAvatarToLocalStorage(imageUrl);
-            
-            this.hideLoading();
-            this.showSuccessMessage('Фото профиля успешно обновлено!');
+            // Если пользователь авторизован, загружаем на сервер
+            if (window.apiService.isAuthenticated()) {
+                const response = await window.apiService.uploadAvatar(file);
+                console.log('✅ Avatar upload response:', response);
+                
+                avatarUrl = response.avatar_url || 
+                           (response.avatar ? `http://localhost:8000/static/${response.avatar}` : null);
+            } else {
+                // Локальная загрузка (для демо)
+                avatarUrl = await this.readFileAsDataURL(file);
+            }
+
+            if (avatarUrl) {
+                this.setAvatarImage(avatarUrl);
+                this.hasCustomAvatar = true;
+                
+                // Сохраняем в localStorage
+                await this.saveAvatarToLocalStorage(avatarUrl);
+                
+                this.hideLoading();
+                this.showSuccessMessage('Фото профиля успешно обновлено!');
+            }
+
         } catch (error) {
             this.hideLoading();
             console.error('Error uploading avatar:', error);
-            this.showErrorMessage('Ошибка при загрузке фото');
+            this.showErrorMessage('Ошибка при загрузке фото: ' + error.message);
+        } finally {
+            // Сбрасываем input
+            fileInput.value = '';
         }
     }
 
@@ -254,27 +1139,21 @@ class UserProfile {
     }
 
     async saveAvatarToLocalStorage(avatarUrl) {
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                try {
-                    const userData = localStorage.getItem('fashioneco_current_user');
-                    if (userData) {
-                        const user = JSON.parse(userData);
-                        user.avatar = avatarUrl;
-                        localStorage.setItem('fashioneco_current_user', JSON.stringify(user));
-                        console.log('✅ Avatar saved to localStorage');
-                    }
-                    resolve(true);
-                } catch (error) {
-                    console.error('Error saving avatar to localStorage:', error);
-                    resolve(false);
-                }
-            }, 500);
-        });
+        try {
+            const userData = localStorage.getItem('fashioneco_current_user');
+            if (userData) {
+                const user = JSON.parse(userData);
+                user.avatar = avatarUrl;
+                localStorage.setItem('fashioneco_current_user', JSON.stringify(user));
+                console.log('✅ Avatar saved to localStorage');
+            }
+        } catch (error) {
+            console.error('Error saving avatar to localStorage:', error);
+        }
     }
 
     setAvatarImage(imageUrl) {
-        console.log('🖼️ Setting avatar image');
+        console.log('🖼️ Setting avatar image:', imageUrl);
         if (this.elements.avatarImage) {
             this.elements.avatarImage.src = imageUrl;
             this.elements.avatarImage.classList.remove('hidden');
@@ -284,8 +1163,37 @@ class UserProfile {
         }
     }
 
-    removeAvatar() {
-        console.log('🗑️ Removing avatar');
+    async removeAvatar() {
+        console.log('🗑️ Removing avatar...');
+        
+        try {
+            this.showLoading('Удаление фото...');
+            
+            // Если пользователь авторизован, удаляем с сервера
+            if (window.apiService.isAuthenticated()) {
+                await window.apiService.deleteAvatar();
+                console.log('✅ Avatar deleted from server');
+            }
+            
+            // Обновляем интерфейс
+            this.resetAvatarToDefault();
+            
+            // Обновляем localStorage
+            await this.saveAvatarToLocalStorage(null);
+            
+            this.hideLoading();
+            this.showSuccessMessage('Фото профиля удалено');
+            
+        } catch (error) {
+            this.hideLoading();
+            console.error('Error deleting avatar:', error);
+            this.showErrorMessage('Ошибка при удалении фото: ' + error.message);
+        }
+    }
+
+    resetAvatarToDefault() {
+        console.log('🔄 Resetting avatar to default');
+        
         if (this.elements.avatarImage) {
             this.elements.avatarImage.src = '';
             this.elements.avatarImage.classList.add('hidden');
@@ -293,11 +1201,9 @@ class UserProfile {
         if (this.elements.avatarInitials) {
             this.elements.avatarInitials.classList.remove('hidden');
         }
+        
         this.hasCustomAvatar = false;
         this.updateAvatar();
-        
-        this.saveAvatarToLocalStorage(null);
-        this.showSuccessMessage('Фото профиля удалено');
     }
 
     enableEditing(fieldId) {
@@ -356,15 +1262,13 @@ class UserProfile {
         console.log('💾 Saving profile...');
 
         try {
-            // Показываем индикатор загрузки
             this.showLoading('Сохранение данных...');
 
             // Собираем данные формы
             const formData = {
                 name: this.elements.userNameInput.value.trim(),
                 email: this.elements.userEmailInput.value.trim(),
-                phone: this.elements.userPhoneInput.value.trim(),
-                avatar: this.hasCustomAvatar && this.elements.avatarImage ? this.elements.avatarImage.src : null
+                phone: this.elements.userPhoneInput.value.trim()
             };
 
             console.log('📝 Form data to save:', formData);
@@ -375,19 +1279,12 @@ class UserProfile {
                 return;
             }
 
+            // Сохраняем на сервер или локально
             await this.saveProfileChanges(formData);
 
             // Блокируем поля после сохранения
             this.setFieldsReadOnly(true);
-
-            // Скрываем кнопку отмены
-            if (this.elements.cancelBtn) {
-                this.elements.cancelBtn.style.display = 'none';
-            }
-
-            // Очищаем сохраненные значения
-            this.originalValues = {};
-            this.isEditing = false;
+            this.cancelEditing();
 
             this.hideLoading();
             this.showSuccessMessage('Данные успешно сохранены!');
@@ -398,22 +1295,21 @@ class UserProfile {
         }
     }
 
-    async saveProfileChanges(formData = null) {
+    async saveProfileChanges(formData) {
         try {
-            const dataToSave = formData || {
-                name: this.elements.userNameInput.value.trim(),
-                email: this.elements.userEmailInput.value.trim(),
-                phone: this.elements.userPhoneInput.value.trim(),
-                avatar: this.hasCustomAvatar && this.elements.avatarImage ? this.elements.avatarImage.src : null
-            };
+            console.log('💾 Saving profile data:', formData);
 
-            console.log('💾 Saving profile data:', dataToSave);
+            // Если пользователь авторизован, сохраняем на сервер
+            if (window.apiService.isAuthenticated()) {
+                const response = await window.apiService.updateProfile(formData);
+                console.log('✅ Profile updated on server:', response);
+            }
 
             // Сохраняем в localStorage
-            await this.saveToLocalStorage(dataToSave);
-            console.log('✅ Profile data saved');
+            await this.saveUserToLocalStorage(formData);
+            console.log('✅ Profile data saved locally');
 
-            // Обновляем аватар
+            // Обновляем аватар (инициалы могут измениться)
             this.updateAvatar();
 
             return true;
@@ -424,40 +1320,23 @@ class UserProfile {
         }
     }
 
-    // Сохранение в localStorage
-    async saveToLocalStorage(profileData) {
-        return new Promise((resolve, reject) => {
-            setTimeout(() => {
-                try {
-                    const userData = localStorage.getItem('fashioneco_current_user');
-                    if (userData) {
-                        const user = JSON.parse(userData);
-                        const updatedUser = {
-                            ...user,
-                            ...profileData,
-                            updatedAt: new Date().toISOString()
-                        };
-                        
-                        localStorage.setItem('fashioneco_current_user', JSON.stringify(updatedUser));
-                        console.log('✅ User data saved to localStorage');
-                        resolve(true);
-                    } else {
-                        // Создаем нового пользователя если нет
-                        const newUser = {
-                            ...profileData,
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString()
-                        };
-                        localStorage.setItem('fashioneco_current_user', JSON.stringify(newUser));
-                        console.log('✅ New user created in localStorage');
-                        resolve(true);
-                    }
-                } catch (error) {
-                    console.error('Error saving to localStorage:', error);
-                    reject(error);
-                }
-            }, 1000);
-        });
+    async saveUserToLocalStorage(userData) {
+        try {
+            const existingData = localStorage.getItem('fashioneco_current_user');
+            let user = existingData ? JSON.parse(existingData) : {};
+            
+            const updatedUser = {
+                ...user,
+                ...userData,
+                updatedAt: new Date().toISOString()
+            };
+            
+            localStorage.setItem('fashioneco_current_user', JSON.stringify(updatedUser));
+            console.log('✅ User data saved to localStorage');
+        } catch (error) {
+            console.error('Error saving to localStorage:', error);
+            throw error;
+        }
     }
 
     validateFormData(data) {
@@ -513,7 +1392,7 @@ class UserProfile {
     }
 
     updateAvatar() {
-        const fullName = this.elements.userNameInput.value;
+        const fullName = this.elements.userNameInput ? this.elements.userNameInput.value : '';
         const names = fullName.split(' ').filter(name => name.trim() !== '');
         let initials = '';
 
@@ -570,8 +1449,11 @@ class UserProfile {
         `;
         
         const style = document.createElement('style');
-        style.textContent = `@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`;
-        document.head.appendChild(style);
+        if (!document.querySelector('#loading-styles')) {
+            style.id = 'loading-styles';
+            style.textContent = `@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`;
+            document.head.appendChild(style);
+        }
         
         loadingEl.style.display = 'flex';
     }
@@ -594,10 +1476,15 @@ class UserProfile {
     }
 
     showNotification(message, type = 'info') {
+        // Удаляем существующие уведомления
+        const existingNotifications = document.querySelectorAll('.profile-notification');
+        existingNotifications.forEach(notification => notification.remove());
+
         const notification = document.createElement('div');
         const backgroundColor = type === 'success' ? '#4CAF50' : 
                               type === 'error' ? '#f44336' : '#2196F3';
         
+        notification.className = 'profile-notification';
         notification.style.cssText = `
             position: fixed;
             top: 20px;
@@ -616,12 +1503,16 @@ class UserProfile {
         notification.textContent = message;
         document.body.appendChild(notification);
         
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-            @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
-        `;
-        document.head.appendChild(style);
+        // Добавляем стили только если их еще нет
+        if (!document.querySelector('#notification-styles')) {
+            const style = document.createElement('style');
+            style.id = 'notification-styles';
+            style.textContent = `
+                @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+                @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+            `;
+            document.head.appendChild(style);
+        }
         
         setTimeout(() => {
             if (notification.parentNode) {
@@ -638,10 +1529,10 @@ class UserProfile {
     handleBackButton() {
         if (this.isEditing) {
             if (confirm('У вас есть несохраненные изменения. Вы уверены, что хотите выйти?')) {
-                window.location.href = 'index.html';
+                window.history.back();
             }
         } else {
-            window.location.href = 'index.html';
+            window.history.back();
         }
     }
 
@@ -652,17 +1543,14 @@ class UserProfile {
         if (data.email && this.elements.userEmailInput) this.elements.userEmailInput.value = data.email;
         if (data.phone && this.elements.userPhoneInput) this.elements.userPhoneInput.value = data.phone;
         
-        if (data.avatar && this.elements.avatarImage) {
-            this.setAvatarImage(data.avatar);
+        // Обработка аватара
+        if (data.avatar_url || data.avatar) {
+            const avatarUrl = data.avatar_url || 
+                            (data.avatar ? `http://localhost:8000/static/${data.avatar}` : data.avatar);
+            this.setAvatarImage(avatarUrl);
             this.hasCustomAvatar = true;
         } else {
-            this.hasCustomAvatar = false;
-            if (this.elements.avatarImage) {
-                this.elements.avatarImage.classList.add('hidden');
-            }
-            if (this.elements.avatarInitials) {
-                this.elements.avatarInitials.classList.remove('hidden');
-            }
+            this.resetAvatarToDefault();
         }
         
         this.updateAvatar();
@@ -670,23 +1558,10 @@ class UserProfile {
     }
 }
 
-// ВАЖНО: УБИРАЕМ ВСЮ ПРОВЕРКУ АВТОРИЗАЦИИ
+// Инициализация без проверки авторизации
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🔧 DOM Content Loaded - NO AUTH CHECK');
+    console.log('🔧 DOM Content Loaded - Profile initializing');
     
-    // Сразу создаем тестового пользователя если его нет
-    if (!localStorage.getItem('fashioneco_current_user')) {
-        const testUser = {
-            name: 'Тестовый Пользователь',
-            email: 'test@example.com',
-            phone: '+7 (999) 999-99-99',
-            avatar: null,
-            createdAt: new Date().toISOString()
-        };
-        localStorage.setItem('fashioneco_current_user', JSON.stringify(testUser));
-        console.log('✅ Test user created');
-    }
-
     try {
         const userProfile = new UserProfile();
         window.userProfile = userProfile;
@@ -720,4 +1595,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-console.log('🔧 profile.js loaded - NO AUTHENTICATION CHECK');
+console.log('🔧 profile.js loaded');

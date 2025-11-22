@@ -1,10 +1,10 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from sqlalchemy import func
-from app.core.security import verify_password, get_password_hash
-from app.models.user import User
-from app.schemas.user import UserUpdate, ChangePasswordRequest
-from app.services.file_service import file_service
+from Backend.app.core.security import verify_password, get_password_hash
+from Backend.app.models.user import User
+from Backend.app.schemas.user import UserUpdate, ChangePasswordRequest
+from Backend.app.services.file_service import file_service
 
 class UserService:
     def __init__(self, db: Session):
