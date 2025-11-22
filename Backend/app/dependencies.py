@@ -5,31 +5,43 @@
 # from Backend.app.core.security import verify_token
 # from Backend.app.models.user import User
 
-# security = HTTPBearer()
+# oauth2_scheme = HTTPBearer()
 
 # async def get_current_user(
-#     token: str = Depends(security),
+#     token: str = Depends(oauth2_scheme),
 #     db: Session = Depends(get_db)
 # ) -> User:
-#     """Зависимость для получения текущего пользователя"""
 #     credentials_exception = HTTPException(
 #         status_code=status.HTTP_401_UNAUTHORIZED,
-#         detail="Could not validate credentials"
+#         detail="Could not validate credentials",
+#         headers={"WWW-Authenticate": "Bearer"},
 #     )
     
-#     user_id = verify_token(token.credentials)
+#     payload = verify_token(token.credentials)
+#     if payload is None or payload.get("type") != "access":
+#         raise credentials_exception
+    
+#     user_id: int = int(payload.get("sub"))
 #     if user_id is None:
 #         raise credentials_exception
-        
+    
 #     user = db.query(User).filter(User.id == user_id).first()
-#     if user is None:
+#     if user is None or not user.is_active:
 #         raise credentials_exception
-        
+    
 #     return user
+
+# async def get_current_active_user(
+#     current_user: User = Depends(get_current_user)
+# ) -> User:
+#     if not current_user.is_active:
+#         raise HTTPException(status_code=400, detail="Inactive user")
+#     return current_user
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from Backend.app.core.database import get_db
 from Backend.app.core.security import verify_token
 from Backend.app.models.user import User
@@ -38,7 +50,7 @@ oauth2_scheme = HTTPBearer()
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -54,7 +66,10 @@ async def get_current_user(
     if user_id is None:
         raise credentials_exception
     
-    user = db.query(User).filter(User.id == user_id).first()
+    # ИСПРАВЛЕНИЕ: используем асинхронный запрос
+    result = await db.execute(select(User).filter(User.id == user_id))
+    user = result.scalar_one_or_none()
+    
     if user is None or not user.is_active:
         raise credentials_exception
     

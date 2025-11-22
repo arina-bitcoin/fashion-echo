@@ -66,8 +66,8 @@
 
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.asyncio import AsyncSession
+# from sqlalchemy.orm import sessionmaker
+# from sqlalchemy.ext.asyncio import AsyncSession
 # from .database import AsyncSessionLocal
 
 """"""
@@ -106,7 +106,8 @@ AsyncSessionLocal = async_sessionmaker(
 #         return f"{cls.__name__.lower()}s"
 
 """"""
-async def get_db() -> AsyncSession:
+# async def get_db() -> AsyncSession:
+async def get_db():
     async with AsyncSessionLocal() as session:
         try:
             yield session
