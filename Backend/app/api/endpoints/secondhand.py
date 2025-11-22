@@ -39,7 +39,8 @@ from Backend.app.schemas.secondhand import (
     MapPointResponse,
     SecondhandSearchResponse,
     SecondhandFilters,
-    MapBoundsFilters
+    MapBoundsFilters,
+    MapClusterResponse
 )
 from Backend.app.services.secondhand_service import SecondhandService
 
@@ -65,9 +66,14 @@ async def get_secondhands(
     )
     
     items, total = secondhand_service.get_secondhands(db, filters, skip, limit)
-    
+
+    item_models = [
+        SecondhandResponse.model_validate(obj, from_attributes=True)
+        for obj in items
+    ]
+
     return SecondhandSearchResponse(
-        items=items,
+        items=item_models,
         total=total,
         skip=skip,
         limit=limit
@@ -80,14 +86,37 @@ async def get_secondhands_for_map(
     db: Session = Depends(get_db)
 ):
     """
-    Получить секондхенды для отображения на карте
+    Получить секондхенды для отображения на карте (простые точки).
+    Возвращаем сразу Pydantic-модели, без ORM-магии.
     """
     secondhands = secondhand_service.get_secondhands_in_bounds(
-        db, 
-        bounds.ne_lat, bounds.ne_lng, 
-        bounds.sw_lat, bounds.sw_lng
+        db,
+        bounds.ne_lat,
+        bounds.ne_lng,
+        bounds.sw_lat,
+        bounds.sw_lng,
     )
-    return secondhands
+
+    points: List[MapPointResponse] = []
+
+    for sh in secondhands:
+        # защита от возможных None в координатах
+        if sh.latitude is None or sh.longitude is None:
+            continue
+
+        points.append(
+            MapPointResponse(
+                id=sh.id,
+                name=sh.name,
+                latitude=sh.latitude,
+                longitude=sh.longitude,
+                address=sh.address,
+                phone=sh.phone,
+            )
+        )
+
+    return points
+
 
 
 @router.post("/", response_model=SecondhandResponse)
@@ -142,3 +171,61 @@ async def delete_secondhand(
     if not success:
         raise HTTPException(status_code=404, detail="Secondhand not found")
     return {"message": "Secondhand deleted successfully"}
+
+# мое дополнение
+@router.get("/map/clusters", response_model=List[MapClusterResponse])
+async def get_map_clusters(
+    zoom: int = Query(..., ge=0, le=20, description="Текущий zoom карты"),
+    bounds: MapBoundsFilters = Depends(),
+    db: Session = Depends(get_db)
+):
+    """
+    Кластеры секондхендов для карты на основании zoom + границ видимой области.
+    """
+    clusters = secondhand_service.get_clusters_in_bounds(
+        db=db,
+        zoom=zoom,
+        ne_lat=bounds.ne_lat,
+        ne_lng=bounds.ne_lng,
+        sw_lat=bounds.sw_lat,
+        sw_lng=bounds.sw_lng,
+    )
+    return clusters
+
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from Backend.app.config import settings
+from Backend.app.models.secondhand import Secondhand
+
+# ...
+
+@router.get("/debug/db")
+async def debug_db():
+    """
+    Временный debug-эндпоинт: проверяет, с какой БД мы работаем,
+    и сколько в ней записей secondhands.
+    Использует отдельный sync-движок, НЕ get_db / SessionLocal.
+    """
+    # Берём тот же URL, что и у приложения, но делаем его sync-совместимым
+    db_url = settings.DATABASE_URL
+    if db_url.startswith("sqlite+aiosqlite"):
+        db_url_sync = db_url.replace("sqlite+aiosqlite", "sqlite", 1)
+    else:
+        db_url_sync = db_url
+
+    engine = create_engine(
+        db_url_sync,
+        connect_args={"check_same_thread": False},
+        echo=True,
+    )
+    Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+    with Session() as db:
+        count = db.query(Secondhand).count()
+
+    return {
+        "database_url": db_url,
+        "database_url_sync": db_url_sync,
+        "secondhands_count": count
+    }

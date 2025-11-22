@@ -21,10 +21,24 @@ async def update_current_user(
     current_user: User = Depends(get_current_active_user)
 ):
     # Обновление данных пользователя
-    update_data = user_data.dict(exclude_unset=True)
+    update_data = user_data.dict(exclude_unset=True, exclude={"settings"})
     
     for field, value in update_data.items():
         setattr(current_user, field, value)
+
+    # Обработка настроек отдельно
+    if user_data.settings is not None:
+        # user_data.settings — это Pydantic-модель UserSettings
+        # забираем только переданные значения
+        new_settings = user_data.settings.dict(exclude_unset=True)
+
+        # текущие настройки из JSON-колонки
+        current_settings = current_user.settings or {}
+
+        # новое поверх старого, чтобы theme="dark" перезаписала "light"
+        merged_settings = {**current_settings, **new_settings}
+
+        current_user.settings = merged_settings
     
     db.commit()
     db.refresh(current_user)

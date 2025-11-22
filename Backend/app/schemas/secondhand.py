@@ -2,6 +2,10 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field, field_validator
 from enum import Enum
+from pydantic import ConfigDict
+from pydantic import BaseModel, Field, field_validator, ValidationInfo, model_validator
+
+
 
 
 # Enums для валидации
@@ -157,9 +161,35 @@ class MapBoundsFilters(BaseModel):
     sw_lat: float = Field(..., ge=-90, le=90)
     sw_lng: float = Field(..., ge=-180, le=180)
 
-    @field_validator('ne_lat', 'sw_lat')
-    def validate_latitudes(cls, v, values, **kwargs):
-        if 'ne_lat' in values and 'sw_lat' in values:
-            if values['ne_lat'] <= values['sw_lat']:
-                raise ValueError('ne_lat must be greater than sw_lat')
-        return v
+    @model_validator(mode="after")
+    def check_latitudes(self) -> "MapBoundsFilters":
+        """
+        В Pydantic v2 проще валидировать уже готовую модель.
+        Проверяем, что ne_lat > sw_lat.
+        """
+        if self.ne_lat <= self.sw_lat:
+            raise ValueError("ne_lat must be greater than sw_lat")
+        return self
+
+
+class MapPointResponse(BaseModel):
+    """Упрощенная схема для отображения на карте"""
+    id: int
+    name: str
+    latitude: float
+    longitude: float
+    address: str
+    phone: Optional[str]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MapClusterResponse(BaseModel):
+    """
+    Схема для кластера точек на карте.
+    Если count == 1, можно считать это "одиночной точкой".
+    """
+    latitude: float
+    longitude: float
+    count: int
+    ids: List[int]

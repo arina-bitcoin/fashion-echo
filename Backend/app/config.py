@@ -34,18 +34,23 @@
 #                           settings.DB_PATH, settings.DB_NAME)
 #     return f"sqlite:///{db_path}"
 
+from pathlib import Path
 from pydantic_settings import BaseSettings
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+DB_PATH = BASE_DIR / "db" / "fashion_eco.db"
 
 class Settings(BaseSettings):
     # Настройки БД
-    DATABASE_URL: str = "sqlite+aiosqlite:///./db/fashion_eco.db"
+    DATABASE_URL: str = f"sqlite+aiosqlite:///{DB_PATH}"
     
     # JWT настройки
     SECRET_KEY: str = "your-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
-    
+
+    DEBUG: bool = True
     # Настройки приложения
     PROJECT_NAME: str = "Fashion Eco"
     

@@ -2,12 +2,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func
 from typing import List, Optional, Tuple
 import logging
+import math
 
 from Backend.app.models.secondhand import Secondhand
 from Backend.app.schemas.secondhand import (
     SecondhandCreate, 
     SecondhandUpdate, 
-    SecondhandFilters
+    SecondhandFilters,
+    MapClusterResponse
 )
 from Backend.app.services.map_service import MapService
 
@@ -265,3 +267,103 @@ class SecondhandService:
             db.rollback()
             logger.error(f"Error in bulk create: {e}")
             return []
+
+    def get_clusters_in_bounds(
+        self,
+        db: Session,
+        zoom: int,
+        ne_lat: float,
+        ne_lng: float,
+        sw_lat: float,
+        sw_lng: float,
+    ) -> List[MapClusterResponse]:
+        """
+        Получить кластеры секондхендов в границах карты для указанного zoom.
+        """
+        points = self.get_secondhands_in_bounds(
+            db,
+            ne_lat=ne_lat,
+            ne_lng=ne_lng,
+            sw_lat=sw_lat,
+            sw_lng=sw_lng,
+        )
+        return self._cluster_points(points, zoom)
+
+    def _cell_size_for_zoom(self, zoom: int) -> float:
+        """
+        Подбираем размер "сетки" (в градусах) для кластеризации в зависимости от zoom.
+        Чем меньше zoom — тем крупнее ячейки.
+        """
+        if zoom <= 5:
+            return 1.0       # ~110 км по широте
+        elif zoom <= 8:
+            return 0.5       # ~55 км
+        elif zoom <= 10:
+            return 0.2       # ~22 км
+        elif zoom <= 12:
+            return 0.1       # ~11 км
+        elif zoom <= 14:
+            return 0.05      # ~5 км
+        else:
+            return 0.02      # ~2 км
+
+    def _cluster_points(self, points: List[Secondhand], zoom: int) -> List[MapClusterResponse]:
+        """
+        Простая grid-кластеризация: делим пространство на ячейки.
+        В каждой ячейке считаем среднюю координату и список id.
+        """
+        if not points:
+            return []
+
+        # На очень большом zoom можно не кластеризовать, а отдавать точки как есть
+        if zoom >= 16:
+            return [
+                MapClusterResponse(
+                    latitude=p.latitude,
+                    longitude=p.longitude,
+                    count=1,
+                    ids=[p.id],
+                )
+                for p in points
+                if p.latitude is not None and p.longitude is not None
+            ]
+
+        cell_size = self._cell_size_for_zoom(zoom)
+
+        clusters: dict[tuple[int, int], dict] = {}
+
+        for p in points:
+            if p.latitude is None or p.longitude is None:
+                continue
+
+            cell_lat = math.floor(p.latitude / cell_size)
+            cell_lng = math.floor(p.longitude / cell_size)
+            key = (cell_lat, cell_lng)
+
+            if key not in clusters:
+                clusters[key] = {
+                    "lat_sum": 0.0,
+                    "lng_sum": 0.0,
+                    "count": 0,
+                    "ids": [],
+                }
+
+            clusters[key]["lat_sum"] += p.latitude
+            clusters[key]["lng_sum"] += p.longitude
+            clusters[key]["count"] += 1
+            clusters[key]["ids"].append(p.id)
+
+        result: List[MapClusterResponse] = []
+        for data in clusters.values():
+            count = data["count"]
+            result.append(
+                MapClusterResponse(
+                    latitude=data["lat_sum"] / count,
+                    longitude=data["lng_sum"] / count,
+                    count=count,
+                    ids=data["ids"],
+                )
+            )
+
+        return result
+
