@@ -89,5 +89,38 @@
     <script src="js/auth-state.js"></script>     <!-- ВТОРОЙ -->
     <script src="js/auth.js"></script>
     <script src="js/profile.js"></script>
+    <!-- Добавьте перед закрывающим тегом body в profile.html -->
+<script src="js/debug-auth.js"></script>
+<script>
+// Специальная диагностика для страницы профиля
+console.log('🔧 PROFILE PAGE DEBUG - ЗАПУСК');
+console.log('📄 Текущая страница:', window.location.href);
+
+// Проверяем загрузку скриптов
+console.log('📦 Загруженные скрипты:');
+console.log('   api-service:', !!window.apiService);
+console.log('   authState:', !!window.authState);
+console.log('   authManager:', !!window.authManager);
+console.log('   userProfile:', !!window.userProfile);
+
+// Проверяем данные сразу после загрузки
+setTimeout(() => {
+    console.log('🔍 ДАННЫЕ ПОСЛЕ ЗАГРУЗКИ СТРАНИЦЫ:');
+    console.log('   Токен:', localStorage.getItem('auth_token') ? '✅ Есть' : '❌ Нет');
+    console.log('   Пользователь в localStorage:', JSON.parse(localStorage.getItem('fashioneco_current_user') || 'null'));
+    console.log('   AuthState currentUser:', window.authState?.currentUser);
+    console.log('   AuthState isLoggedIn:', window.authState?.isLoggedIn?.());
+    
+    // Проверяем заполнение полей формы
+    const nameInput = document.getElementById('user-name');
+    const emailInput = document.getElementById('user-email');
+    const phoneInput = document.getElementById('user-phone');
+    
+    console.log('📝 СОСТОЯНИЕ ПОЛЕЙ ФОРМЫ:');
+    console.log('   Имя:', nameInput?.value || '❌ Не заполнено');
+    console.log('   Email:', emailInput?.value || '❌ Не заполнено');
+    console.log('   Телефон:', phoneInput?.value || '❌ Не заполнено');
+}, 1000);
+</script>
 </body>
 </html>
