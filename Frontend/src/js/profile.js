@@ -1,212 +1,242 @@
-// profile.js - Полная версия с глобальным сохранением
+// profile.js - Версия без проверки авторизации
 class UserProfile {
     constructor() {
-        this.originalValues = {};
-        this.isEditing = false;
-        this.hasCustomAvatar = false;
+        console.log('🔧 UserProfile constructor started');
         
-        this.elements = {
-            profileForm: document.getElementById('profile-form'),
-            editButtons: document.querySelectorAll('.edit-btn'),
-            cancelBtn: document.getElementById('cancel-btn'),
-            saveBtn: document.getElementById('save-btn'),
-            backBtn: document.getElementById('back-btn'),
-            userAvatar: document.getElementById('user-avatar'),
-            avatarImage: document.getElementById('avatar-image'),
-            avatarInitials: document.getElementById('avatar-initials'),
-            avatarInput: document.getElementById('avatar-input'),
-            changeAvatarBtn: document.getElementById('change-avatar-btn'),
-            removeAvatarBtn: document.getElementById('remove-avatar-btn'),
-            userNameInput: document.getElementById('user-name'),
-            userEmailInput: document.getElementById('user-email'),
-            userPhoneInput: document.getElementById('user-phone')
-        };
+        try {
+            this.originalValues = {};
+            this.isEditing = false;
+            this.hasCustomAvatar = false;
+            
+            this.elements = {
+                profileForm: document.getElementById('profile-form'),
+                editButtons: document.querySelectorAll('.edit-btn'),
+                cancelBtn: document.getElementById('cancel-btn'),
+                saveBtn: document.getElementById('save-btn'),
+                backBtn: document.getElementById('back-btn'),
+                userAvatar: document.getElementById('user-avatar'),
+                avatarImage: document.getElementById('avatar-image'),
+                avatarInitials: document.getElementById('avatar-initials'),
+                avatarInput: document.getElementById('avatar-input'),
+                changeAvatarBtn: document.getElementById('change-avatar-btn'),
+                removeAvatarBtn: document.getElementById('remove-avatar-btn'),
+                userNameInput: document.getElementById('user-name'),
+                userEmailInput: document.getElementById('user-email'),
+                userPhoneInput: document.getElementById('user-phone')
+            };
 
-        console.log('🔧 UserProfile initialized');
-        this.initializeElements();
-        this.attachEventListeners();
-        this.loadUserData();
+            console.log('🔧 Elements initialized');
+            this.initializeElements();
+            this.attachEventListeners();
+            this.loadUserData();
+            
+        } catch (error) {
+            console.error('❌ Error in UserProfile constructor:', error);
+            this.showErrorMessage('Ошибка инициализации профиля');
+        }
     }
 
     initializeElements() {
-        // Проверяем, что все элементы найдены
-        for (const key in this.elements) {
+        console.log('🔧 Initializing elements...');
+        
+        // Проверяем обязательные элементы
+        const requiredElements = ['profileForm', 'userNameInput', 'userEmailInput', 'userPhoneInput'];
+        
+        for (const key of requiredElements) {
             if (!this.elements[key]) {
-                console.error(`Element not found: ${key}`);
+                console.error(`❌ Required element not found: ${key}`);
             }
         }
         
-        console.log('✅ All profile elements initialized');
+        console.log('✅ Elements initialized');
     }
 
     loadUserData() {
-        // Загружаем данные из authState если пользователь авторизован
-        if (this.isAuthStateAvailable()) {
-            const currentUser = this.getCurrentUser();
-            if (currentUser) {
-                this.setProfileData(currentUser);
-                console.log('✅ User data loaded from authState:', currentUser.name);
-            } else {
-                console.warn('⚠️ No current user found');
-            }
-        } else {
-            console.warn('⚠️ authState not available, loading from localStorage directly');
-            this.loadFromLocalStorage();
-        }
-    }
-
-    // Проверка доступности authState
-    isAuthStateAvailable() {
-        return window.authState && 
-               typeof window.authState.getCurrentUser === 'function' &&
-               typeof window.authState.updateUserProfile === 'function';
-    }
-
-    // Безопасное получение пользователя
-    getCurrentUser() {
-        if (this.isAuthStateAvailable()) {
-            return window.authState.getCurrentUser();
-        } else {
-            // Fallback: загружаем напрямую из localStorage
-            try {
-                const userData = localStorage.getItem('fashioneco_current_user');
-                return userData ? JSON.parse(userData) : null;
-            } catch (error) {
-                console.error('Error loading user from localStorage:', error);
-                return null;
-            }
-        }
-    }
-
-    // Загрузка из localStorage
-    loadFromLocalStorage() {
+        console.log('🔧 Loading user data...');
+        
         try {
-            const userData = localStorage.getItem('fashioneco_current_user');
-            if (userData) {
-                const user = JSON.parse(userData);
-                this.setProfileData(user);
-                console.log('✅ User data loaded from localStorage');
+            let currentUser = null;
+            
+            // Пробуем получить пользователя из authState
+            if (window.authState && typeof window.authState.getCurrentUser === 'function') {
+                currentUser = window.authState.getCurrentUser();
+                console.log('👤 User from authState:', currentUser);
             }
+            
+            // Если не получилось, пробуем localStorage
+            if (!currentUser) {
+                try {
+                    const userData = localStorage.getItem('fashioneco_current_user');
+                    if (userData) {
+                        currentUser = JSON.parse(userData);
+                        console.log('👤 User from localStorage:', currentUser);
+                    }
+                } catch (error) {
+                    console.error('Error parsing localStorage user:', error);
+                }
+            }
+            
+            // Если все еще нет пользователя, создаем тестового
+            if (!currentUser) {
+                currentUser = this.createTestUser();
+                console.log('👤 Created test user:', currentUser);
+            }
+            
+            this.setProfileData(currentUser);
+            console.log('✅ User data loaded');
+            
         } catch (error) {
-            console.error('Error loading from localStorage:', error);
+            console.error('❌ Error loading user data:', error);
+            this.setDefaultData();
         }
+    }
+
+    createTestUser() {
+        const testUser = {
+            name: 'Иван Иванов',
+            email: 'ivan@example.com',
+            phone: '+7 (999) 123-45-67',
+            avatar: null,
+            createdAt: new Date().toISOString()
+        };
+        
+        // Сохраняем тестового пользователя в localStorage
+        localStorage.setItem('fashioneco_current_user', JSON.stringify(testUser));
+        
+        return testUser;
+    }
+
+    setDefaultData() {
+        console.log('🔧 Setting default data');
+        if (this.elements.userNameInput) this.elements.userNameInput.value = 'Тестовый пользователь';
+        if (this.elements.userEmailInput) this.elements.userEmailInput.value = 'test@example.com';
+        if (this.elements.userPhoneInput) this.elements.userPhoneInput.value = '+7 (999) 999-99-99';
+        this.updateAvatar();
     }
 
     attachEventListeners() {
         console.log('🔧 Attaching event listeners...');
 
-        // Обработчики для кнопок редактирования полей
-        this.elements.editButtons.forEach(button => {
-            button.addEventListener('click', (event) => {
-                const fieldId = event.target.getAttribute('data-field');
-                console.log('✏️ Edit button clicked for:', fieldId);
-                if (fieldId) {
-                    this.enableEditing(fieldId);
-                }
-            });
-        });
+        try {
+            // Обработчики для кнопок редактирования полей
+            if (this.elements.editButtons && this.elements.editButtons.length > 0) {
+                this.elements.editButtons.forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        const fieldId = event.target.getAttribute('data-field');
+                        console.log('✏️ Edit button clicked for:', fieldId);
+                        if (fieldId) {
+                            this.enableEditing(fieldId);
+                        }
+                    });
+                });
+            }
 
-        // Обработчик отмены редактирования
-        if (this.elements.cancelBtn) {
-            this.elements.cancelBtn.addEventListener('click', () => {
-                console.log('❌ Cancel button clicked');
-                this.cancelEditing();
-            });
+            // Обработчик отмены редактирования
+            if (this.elements.cancelBtn) {
+                this.elements.cancelBtn.addEventListener('click', () => {
+                    console.log('❌ Cancel button clicked');
+                    this.cancelEditing();
+                });
+            }
+
+            // Обработчик сохранения формы
+            if (this.elements.profileForm) {
+                this.elements.profileForm.addEventListener('submit', (event) => {
+                    event.preventDefault();
+                    console.log('💾 Save form submitted');
+                    this.saveProfile();
+                });
+            }
+
+            // Обработчик кнопки "Назад"
+            if (this.elements.backBtn) {
+                this.elements.backBtn.addEventListener('click', () => {
+                    console.log('⬅️ Back button clicked');
+                    this.handleBackButton();
+                });
+            }
+
+            // Обработчики для аватара
+            if (this.elements.userAvatar) {
+                this.elements.userAvatar.addEventListener('click', () => {
+                    console.log('🖼️ Avatar clicked');
+                    if (this.elements.avatarInput) {
+                        this.elements.avatarInput.click();
+                    }
+                });
+            }
+
+            if (this.elements.changeAvatarBtn) {
+                this.elements.changeAvatarBtn.addEventListener('click', () => {
+                    console.log('📷 Change avatar button clicked');
+                    if (this.elements.avatarInput) {
+                        this.elements.avatarInput.click();
+                    }
+                });
+            }
+
+            // Обработчик загрузки файла
+            if (this.elements.avatarInput) {
+                this.elements.avatarInput.addEventListener('change', (event) => {
+                    console.log('📁 File selected');
+                    this.handleAvatarUpload(event);
+                });
+            }
+
+            // Обработчик удаления аватара
+            if (this.elements.removeAvatarBtn) {
+                this.elements.removeAvatarBtn.addEventListener('click', () => {
+                    console.log('🗑️ Remove avatar clicked');
+                    this.removeAvatar();
+                });
+            }
+
+            console.log('✅ All event listeners attached');
+        } catch (error) {
+            console.error('❌ Error attaching event listeners:', error);
         }
-
-        // Обработчик сохранения формы
-        this.elements.profileForm.addEventListener('submit', (event) => {
-            event.preventDefault();
-            console.log('💾 Save form submitted');
-            this.saveProfile();
-        });
-
-        // Обработчик кнопки "Назад"
-        if (this.elements.backBtn) {
-            this.elements.backBtn.addEventListener('click', () => {
-                console.log('⬅️ Back button clicked');
-                this.handleBackButton();
-            });
-        }
-
-        // Обработчики для аватара
-        if (this.elements.userAvatar) {
-            this.elements.userAvatar.addEventListener('click', () => {
-                console.log('🖼️ Avatar clicked');
-                this.elements.avatarInput.click();
-            });
-        }
-
-        if (this.elements.changeAvatarBtn) {
-            this.elements.changeAvatarBtn.addEventListener('click', () => {
-                console.log('📷 Change avatar button clicked');
-                this.elements.avatarInput.click();
-            });
-        }
-
-        // Обработчик загрузки файла
-        this.elements.avatarInput.addEventListener('change', (event) => {
-            console.log('📁 File selected');
-            this.handleAvatarUpload(event);
-        });
-
-        // Обработчик удаления аватара
-        if (this.elements.removeAvatarBtn) {
-            this.elements.removeAvatarBtn.addEventListener('click', () => {
-                console.log('🗑️ Remove avatar clicked');
-                this.removeAvatar();
-            });
-        }
-
-        console.log('✅ All event listeners attached');
     }
 
     async handleAvatarUpload(event) {
-    const fileInput = event.target;
-    if (!fileInput.files || fileInput.files.length === 0) {
-        return;
-    }
-
-    const file = fileInput.files[0];
-    console.log('📤 Uploading file:', file.name, file.size, 'bytes');
-
-    // Проверка типа файла
-    if (!file.type.startsWith('image/')) {
-        this.showErrorMessage('Пожалуйста, выберите файл изображения (JPEG, PNG, etc.)');
-        return;
-    }
-
-    // Проверка размера файла (макс. 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-        this.showErrorMessage('Размер файла не должен превышать 5MB');
-        return;
-    }
-
-    try {
-        this.showLoading('Загрузка фото...');
-
-        // Чтение файла и создание URL
-        const imageUrl = await this.readFileAsDataURL(file);
-        this.setAvatarImage(imageUrl);
-        this.hasCustomAvatar = true;
-        
-        // Сохраняем аватар через API
-        if (this.isAuthStateAvailable()) {
-            await window.authState.updateUserAvatar(imageUrl);
-        } else {
-            // Fallback: сохраняем в localStorage
-            await this.saveAvatarToLocalStorage(imageUrl);
+        const fileInput = event.target;
+        if (!fileInput.files || fileInput.files.length === 0) {
+            return;
         }
-        
-        this.hideLoading();
-        this.showSuccessMessage('Фото профиля успешно обновлено и сохранено!');
-    } catch (error) {
-        this.hideLoading();
-        console.error('Error uploading avatar:', error);
-        this.showErrorMessage('Ошибка при загрузке фото: ' + error.message);
-    }
-}
 
+        const file = fileInput.files[0];
+        console.log('📤 Uploading file:', file.name);
+
+        // Проверка типа файла
+        if (!file.type.startsWith('image/')) {
+            this.showErrorMessage('Пожалуйста, выберите файл изображения');
+            return;
+        }
+
+        // Проверка размера файла (макс. 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            this.showErrorMessage('Размер файла не должен превышать 5MB');
+            return;
+        }
+
+        try {
+            this.showLoading('Загрузка фото...');
+
+            // Чтение файла и создание URL
+            const imageUrl = await this.readFileAsDataURL(file);
+            this.setAvatarImage(imageUrl);
+            this.hasCustomAvatar = true;
+            
+            // Сохраняем аватар
+            await this.saveAvatarToLocalStorage(imageUrl);
+            
+            this.hideLoading();
+            this.showSuccessMessage('Фото профиля успешно обновлено!');
+        } catch (error) {
+            this.hideLoading();
+            console.error('Error uploading avatar:', error);
+            this.showErrorMessage('Ошибка при загрузке фото');
+        }
+    }
 
     readFileAsDataURL(file) {
         return new Promise((resolve, reject) => {
@@ -223,15 +253,15 @@ class UserProfile {
         });
     }
 
-    // Сохранение аватара в localStorage (fallback)
     async saveAvatarToLocalStorage(avatarUrl) {
         return new Promise((resolve) => {
             setTimeout(() => {
                 try {
-                    const currentUser = this.getCurrentUser();
-                    if (currentUser) {
-                        currentUser.avatar = avatarUrl;
-                        localStorage.setItem('fashioneco_current_user', JSON.stringify(currentUser));
+                    const userData = localStorage.getItem('fashioneco_current_user');
+                    if (userData) {
+                        const user = JSON.parse(userData);
+                        user.avatar = avatarUrl;
+                        localStorage.setItem('fashioneco_current_user', JSON.stringify(user));
                         console.log('✅ Avatar saved to localStorage');
                     }
                     resolve(true);
@@ -245,26 +275,28 @@ class UserProfile {
 
     setAvatarImage(imageUrl) {
         console.log('🖼️ Setting avatar image');
-        this.elements.avatarImage.src = imageUrl;
-        this.elements.avatarImage.classList.remove('hidden');
-        this.elements.avatarInitials.classList.add('hidden');
+        if (this.elements.avatarImage) {
+            this.elements.avatarImage.src = imageUrl;
+            this.elements.avatarImage.classList.remove('hidden');
+        }
+        if (this.elements.avatarInitials) {
+            this.elements.avatarInitials.classList.add('hidden');
+        }
     }
 
     removeAvatar() {
         console.log('🗑️ Removing avatar');
-        this.elements.avatarImage.src = '';
-        this.elements.avatarImage.classList.add('hidden');
-        this.elements.avatarInitials.classList.remove('hidden');
+        if (this.elements.avatarImage) {
+            this.elements.avatarImage.src = '';
+            this.elements.avatarImage.classList.add('hidden');
+        }
+        if (this.elements.avatarInitials) {
+            this.elements.avatarInitials.classList.remove('hidden');
+        }
         this.hasCustomAvatar = false;
         this.updateAvatar();
         
-        // Сохраняем изменения ГЛОБАЛЬНО
-        if (this.isAuthStateAvailable()) {
-            window.authState.updateUserAvatar(null);
-        } else {
-            this.saveAvatarToLocalStorage(null);
-        }
-        
+        this.saveAvatarToLocalStorage(null);
         this.showSuccessMessage('Фото профиля удалено');
     }
 
@@ -323,26 +355,26 @@ class UserProfile {
     async saveProfile() {
         console.log('💾 Saving profile...');
 
-        // Показываем индикатор загрузки
-        this.showLoading('Сохранение данных...');
-
-        // Собираем данные формы
-        const formData = {
-            name: this.elements.userNameInput.value.trim(),
-            email: this.elements.userEmailInput.value.trim(),
-            phone: this.elements.userPhoneInput.value.trim(),
-            avatar: this.hasCustomAvatar ? this.elements.avatarImage.src : null
-        };
-
-        console.log('📝 Form data to save:', formData);
-
-        // Валидация данных
-        if (!this.validateFormData(formData)) {
-            this.hideLoading();
-            return;
-        }
-
         try {
+            // Показываем индикатор загрузки
+            this.showLoading('Сохранение данных...');
+
+            // Собираем данные формы
+            const formData = {
+                name: this.elements.userNameInput.value.trim(),
+                email: this.elements.userEmailInput.value.trim(),
+                phone: this.elements.userPhoneInput.value.trim(),
+                avatar: this.hasCustomAvatar && this.elements.avatarImage ? this.elements.avatarImage.src : null
+            };
+
+            console.log('📝 Form data to save:', formData);
+
+            // Валидация данных
+            if (!this.validateFormData(formData)) {
+                this.hideLoading();
+                return;
+            }
+
             await this.saveProfileChanges(formData);
 
             // Блокируем поля после сохранения
@@ -358,7 +390,6 @@ class UserProfile {
             this.isEditing = false;
 
             this.hideLoading();
-            // Показываем уведомление об успешном сохранении
             this.showSuccessMessage('Данные успешно сохранены!');
         } catch (error) {
             this.hideLoading();
@@ -368,51 +399,41 @@ class UserProfile {
     }
 
     async saveProfileChanges(formData = null) {
-    try {
-        const dataToSave = formData || {
-            name: this.elements.userNameInput.value.trim(),
-            email: this.elements.userEmailInput.value.trim(),
-            phone: this.elements.userPhoneInput.value.trim(),
-            avatar: this.hasCustomAvatar ? this.elements.avatarImage.src : null
-        };
+        try {
+            const dataToSave = formData || {
+                name: this.elements.userNameInput.value.trim(),
+                email: this.elements.userEmailInput.value.trim(),
+                phone: this.elements.userPhoneInput.value.trim(),
+                avatar: this.hasCustomAvatar && this.elements.avatarImage ? this.elements.avatarImage.src : null
+            };
 
-        console.log('💾 Saving profile data globally via API:', dataToSave);
+            console.log('💾 Saving profile data:', dataToSave);
 
-        // Сохраняем через authState (который использует API)
-        if (this.isAuthStateAvailable()) {
-            const updatedUser = await window.authState.updateUserProfile(dataToSave);
-            
-            if (!updatedUser) {
-                throw new Error('Не удалось сохранить данные в системе');
-            }
-
-            console.log('✅ Profile data saved via API');
-        } else {
-            // Fallback: сохраняем в localStorage
+            // Сохраняем в localStorage
             await this.saveToLocalStorage(dataToSave);
-            console.log('✅ Profile data saved to localStorage');
+            console.log('✅ Profile data saved');
+
+            // Обновляем аватар
+            this.updateAvatar();
+
+            return true;
+
+        } catch (error) {
+            console.error('❌ Error in saveProfileChanges:', error);
+            throw error;
         }
-
-        // Обновляем аватар
-        this.updateAvatar();
-
-        return true;
-
-    } catch (error) {
-        console.error('❌ Error in saveProfileChanges:', error);
-        throw error;
     }
-}
 
-    // Сохранение в localStorage (fallback)
+    // Сохранение в localStorage
     async saveToLocalStorage(profileData) {
         return new Promise((resolve, reject) => {
             setTimeout(() => {
                 try {
-                    const currentUser = this.getCurrentUser();
-                    if (currentUser) {
+                    const userData = localStorage.getItem('fashioneco_current_user');
+                    if (userData) {
+                        const user = JSON.parse(userData);
                         const updatedUser = {
-                            ...currentUser,
+                            ...user,
                             ...profileData,
                             updatedAt: new Date().toISOString()
                         };
@@ -421,7 +442,15 @@ class UserProfile {
                         console.log('✅ User data saved to localStorage');
                         resolve(true);
                     } else {
-                        reject(new Error('Пользователь не найден'));
+                        // Создаем нового пользователя если нет
+                        const newUser = {
+                            ...profileData,
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString()
+                        };
+                        localStorage.setItem('fashioneco_current_user', JSON.stringify(newUser));
+                        console.log('✅ New user created in localStorage');
+                        resolve(true);
                     }
                 } catch (error) {
                     console.error('Error saving to localStorage:', error);
@@ -464,7 +493,6 @@ class UserProfile {
     }
 
     isValidPhone(phone) {
-        // Простая валидация телефона
         const phoneRegex = /^[\+]?[0-9\s\-\(\)]{10,}$/;
         return phoneRegex.test(phone.replace(/\s/g, ''));
     }
@@ -473,7 +501,6 @@ class UserProfile {
         console.error('❌ Field error:', fieldId, message);
         const field = document.getElementById(fieldId);
         if (field) {
-            // Временная подсветка ошибки
             field.style.boxShadow = '0 0 0 2px rgba(229, 62, 62, 0.5)';
             field.style.borderColor = '#e53e3e';
             
@@ -495,11 +522,13 @@ class UserProfile {
         } else if (names.length === 1) {
             initials = names[0].charAt(0);
         } else {
-            initials = 'U'; // User
+            initials = 'U';
         }
 
         console.log('👤 Updating avatar initials:', initials);
-        this.elements.avatarInitials.textContent = initials.toUpperCase();
+        if (this.elements.avatarInitials) {
+            this.elements.avatarInitials.textContent = initials.toUpperCase();
+        }
     }
 
     setFieldsReadOnly(readonly) {
@@ -513,7 +542,6 @@ class UserProfile {
     }
 
     showLoading(message = 'Загрузка...') {
-        // Создаем или находим элемент загрузки
         let loadingEl = document.getElementById('profile-loading');
         if (!loadingEl) {
             loadingEl = document.createElement('div');
@@ -541,14 +569,8 @@ class UserProfile {
             ${message}
         `;
         
-        // Добавляем анимацию
         const style = document.createElement('style');
-        style.textContent = `
-            @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
-        `;
+        style.textContent = `@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`;
         document.head.appendChild(style);
         
         loadingEl.style.display = 'flex';
@@ -594,17 +616,13 @@ class UserProfile {
         notification.textContent = message;
         document.body.appendChild(notification);
         
-        // Анимация появления
         const style = document.createElement('style');
         style.textContent = `
-            @keyframes slideIn {
-                from { transform: translateX(100%); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
-            }
+            @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+            @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
         `;
         document.head.appendChild(style);
         
-        // Автоматическое скрытие
         setTimeout(() => {
             if (notification.parentNode) {
                 notification.style.animation = 'slideOut 0.3s ease-in';
@@ -627,68 +645,79 @@ class UserProfile {
         }
     }
 
-    // Публичные методы для внешнего использования
-    getProfileData() {
-        return {
-            name: this.elements.userNameInput.value,
-            email: this.elements.userEmailInput.value,
-            phone: this.elements.userPhoneInput.value,
-            avatar: this.hasCustomAvatar ? this.elements.avatarImage.src : null
-        };
-    }
-
     setProfileData(data) {
         console.log('🔧 Setting profile data:', data);
         
-        if (data.name) this.elements.userNameInput.value = data.name;
-        if (data.email) this.elements.userEmailInput.value = data.email;
-        if (data.phone) this.elements.userPhoneInput.value = data.phone;
+        if (data.name && this.elements.userNameInput) this.elements.userNameInput.value = data.name;
+        if (data.email && this.elements.userEmailInput) this.elements.userEmailInput.value = data.email;
+        if (data.phone && this.elements.userPhoneInput) this.elements.userPhoneInput.value = data.phone;
         
-        if (data.avatar) {
+        if (data.avatar && this.elements.avatarImage) {
             this.setAvatarImage(data.avatar);
             this.hasCustomAvatar = true;
         } else {
             this.hasCustomAvatar = false;
-            this.elements.avatarImage.classList.add('hidden');
-            this.elements.avatarInitials.classList.remove('hidden');
+            if (this.elements.avatarImage) {
+                this.elements.avatarImage.classList.add('hidden');
+            }
+            if (this.elements.avatarInitials) {
+                this.elements.avatarInitials.classList.remove('hidden');
+            }
         }
         
         this.updateAvatar();
-        
-        // Блокируем поля после загрузки
         this.setFieldsReadOnly(true);
     }
 }
 
-// Инициализация при загрузке страницы
+// ВАЖНО: УБИРАЕМ ВСЮ ПРОВЕРКУ АВТОРИЗАЦИИ
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🔧 Initializing UserProfile...');
+    console.log('🔧 DOM Content Loaded - NO AUTH CHECK');
     
-    // Проверяем авторизацию
-    if (!window.authState || !window.authState.isLoggedIn || !window.authState.isLoggedIn()) {
-        console.log('❌ User not logged in, redirecting to login');
-        alert('Пожалуйста, войдите в систему');
-        window.location.href = 'login.html';
-        return;
+    // Сразу создаем тестового пользователя если его нет
+    if (!localStorage.getItem('fashioneco_current_user')) {
+        const testUser = {
+            name: 'Тестовый Пользователь',
+            email: 'test@example.com',
+            phone: '+7 (999) 999-99-99',
+            avatar: null,
+            createdAt: new Date().toISOString()
+        };
+        localStorage.setItem('fashioneco_current_user', JSON.stringify(testUser));
+        console.log('✅ Test user created');
     }
-    
-    const userProfile = new UserProfile();
-    window.userProfile = userProfile;
-    
-    console.log('✅ UserProfile initialized successfully');
+
+    try {
+        const userProfile = new UserProfile();
+        window.userProfile = userProfile;
+        console.log('✅ UserProfile initialized successfully');
+    } catch (error) {
+        console.error('❌ Error initializing UserProfile:', error);
+        
+        // Показываем ошибку на странице
+        const errorDiv = document.createElement('div');
+        errorDiv.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #f5c6cb;
+            text-align: center;
+            z-index: 10000;
+        `;
+        errorDiv.innerHTML = `
+            <h3>Ошибка загрузки профиля</h3>
+            <p>${error.message}</p>
+            <button onclick="location.reload()" style="margin-top: 10px; padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                Перезагрузить
+            </button>
+        `;
+        document.body.appendChild(errorDiv);
+    }
 });
 
-// Добавляем глобальные функции для отладки
-window.debugProfile = function() {
-    console.log('=== PROFILE DEBUG INFO ===');
-    console.log('UserProfile instance:', window.userProfile);
-    console.log('AuthState:', window.authState);
-    console.log('Current user:', window.authState?.getCurrentUser());
-    console.log('All users in localStorage:', JSON.parse(localStorage.getItem('fashioneco_all_users') || '[]'));
-    console.log('Current user in localStorage:', JSON.parse(localStorage.getItem('fashioneco_current_user') || 'null'));
-    console.log('Form data:', {
-        name: document.getElementById('user-name')?.value,
-        email: document.getElementById('user-email')?.value,
-        phone: document.getElementById('user-phone')?.value
-    });
-};
+console.log('🔧 profile.js loaded - NO AUTHENTICATION CHECK');
