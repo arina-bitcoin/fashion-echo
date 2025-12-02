@@ -286,15 +286,30 @@
 #             detail=str(e)
 #         )
 
+
+
+
+
+
+
+
+
+
+
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update
+# from sqlalchemy.orm import Session
+# from typing import List
+
 from Backend.app.core.database import get_db
 from Backend.app.core.security import verify_password, get_password_hash
 from Backend.app.dependencies import get_current_active_user
 from Backend.app.models.user import User
 from Backend.app.schemas.user import UserResponse, UserUpdate, ChangePasswordRequest, UserWithAvatarResponse
 from Backend.app.services.file_service import file_service
+from Backend.app.schemas.ad import AdResponse
+from Backend.app.models.ad import Ad
 
 router = APIRouter()
 
@@ -340,6 +355,32 @@ async def update_current_user(
     )
     await db.execute(stmt)
     await db.commit()
+
+    """Код для синхронной сессии -- не подходит"""
+    # update_data = user_data.dict(exclude_unset=True, exclude={"settings"})
+    
+    # for field, value in update_data.items():
+    #     setattr(current_user, field, value)
+
+    # # Обработка настроек отдельно
+    # if user_data.settings is not None:
+    #     # user_data.settings — это Pydantic-модель UserSettings
+    #     # забираем только переданные значения
+    #     new_settings = user_data.settings.dict(exclude_unset=True)
+
+    #     # текущие настройки из JSON-колонки
+    #     current_settings = current_user.settings or {}
+
+    #     # новое поверх старого, чтобы theme="dark" перезаписала "light"
+    #     merged_settings = {**current_settings, **new_settings}
+
+    #     current_user.settings = merged_settings
+
+    # db.commit()
+    # db.refresh(current_user)
+    
+    # return current_user
+    """"""
     
     # Получаем обновленного пользователя
     result = await db.execute(select(User).filter(User.id == current_user.id))
@@ -425,6 +466,20 @@ async def delete_avatar(
     # Формируем ответ
     response_data = UserWithAvatarResponse.model_validate(updated_user)
     return response_data
+
+
+@router.get("/me/ads", response_model=List[AdResponse])
+async def get_user_ads(
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_active_user),
+):
+    """
+    Вернуть список объявлений текущего пользователя.
+    Используется в интеграционном тесте TestUsersIntegration.test_get_user_ads.
+    """
+    ads = db.query(Ad).filter(Ad.user_id == current_user.id).all()
+    return ads
+
 
 @router.post("/change-password")
 async def change_password(

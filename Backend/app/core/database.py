@@ -64,33 +64,55 @@
 #     async with engine.begin() as conn:
 #         await conn.run_sync(Base.metadata.drop_all)
 
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy.ext.declarative import declarative_base
-# from sqlalchemy.orm import sessionmaker
-# from sqlalchemy.ext.asyncio import AsyncSession
-# from .database import AsyncSessionLocal
 
-""""""
-from sqlalchemy.orm import DeclarativeBase, declared_attr
 
+
+
+
+
+
+
+"""НАЧАЛО ФАЙЛА!!!"""
 from Backend.app.config import settings
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.ext.declarative import DeclarativeBase
+from sqlalchemy.pool import StaticPool
 
-# Используем синхронный движок SQLAlchemy
+# from sqlalchemy import create_engine
+# from sqlalchemy.ext.declarative import declarative_base
+# from sqlalchemy.orm import sessionmaker, declarative_base
+
+# Получаем URL для подключения
+DATABASE_URL = settings.DATABASE_URL
+
+# Создаем асинхронный движок для SQLite
 engine = create_async_engine(
-    settings.DATABASE_URL,
-    connect_args={"check_same_thread": False},  # Важно для SQLite
-    echo=True  # Показывает SQL запросы в консоли (можно убрать)
+    DATABASE_URL,
+    # Важные настройки для SQLite
+    connect_args={"check_same_thread": False},  # Разрешаем доступ из разных потоков
+    poolclass=StaticPool,  # Статический пул для SQLite
+    echo=True  # Логирование SQL запросов (отключите в продакшене)
 )
 
-# async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
+"""Синхронная сессия -- не подходит"""
+# # Берём URL из настроек и приводим его к sync-формату
+# db_url = settings.DATABASE_URL
+# if db_url.startswith("sqlite+aiosqlite"):
+#     db_url = db_url.replace("sqlite+aiosqlite", "sqlite", 1)
 
+# # Обычный синхронный engine
+# engine = create_engine(
+#     db_url,
+#     connect_args={"check_same_thread": False},  # для SQLite
+#     echo=True,  # можно выключить в проде
+# )
 """"""
-# SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-# Base = declarative_base()
+
+# Базовый класс моделей
 class Base(DeclarativeBase):
     pass
-""""""
 
+# Асинхронная сессия
 AsyncSessionLocal = async_sessionmaker(
     engine, 
     class_=AsyncSession,
@@ -98,24 +120,33 @@ AsyncSessionLocal = async_sessionmaker(
     autoflush=False
 )
 
-# class Base(AsyncAttrs, DeclarativeBase):
-#     __abstract__ = True
-
-#     @declared_attr.directive
-#     def __tablename__(cls) -> str:
-#         return f"{cls.__name__.lower()}s"
-
-""""""
-# async def get_db() -> AsyncSession:
 async def get_db():
     async with AsyncSessionLocal() as session:
         try:
             yield session
         finally:
             await session.close()
-""""""
 
 async def create_db_and_tables():
     """Создание всех таблиц в базе данных"""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+"""Синхронная сессия -- не подходит"""
+# # Синхронная сессия
+# SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# # Базовый класс моделей
+# Base = declarative_base()
+
+
+# def get_db():
+#     """
+#     Dependency для FastAPI — отдаёт sync-сессию.
+#     """
+#     db = SessionLocal()
+#     try:
+#         yield db
+#     finally:
+#         db.close()
+""""""

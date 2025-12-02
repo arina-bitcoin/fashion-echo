@@ -1284,10 +1284,19 @@ class UserProfile {
 
             // Блокируем поля после сохранения
             this.setFieldsReadOnly(true);
+            
+            // Сбрасываем состояние редактирования
             this.cancelEditing();
 
             this.hideLoading();
             this.showSuccessMessage('Данные успешно сохранены!');
+            
+            // Дополнительная проверка: выводим текущие значения
+            console.log('🔍 ДАННЫЕ ПОСЛЕ СОХРАНЕНИЯ:');
+            console.log('   Имя:', this.elements.userNameInput.value);
+            console.log('   Email:', this.elements.userEmailInput.value);
+            console.log('   Телефон:', this.elements.userPhoneInput.value);
+
         } catch (error) {
             this.hideLoading();
             this.showErrorMessage('Ошибка при сохранении данных: ' + error.message);
@@ -1296,29 +1305,38 @@ class UserProfile {
     }
 
     async saveProfileChanges(formData) {
-        try {
-            console.log('💾 Saving profile data:', formData);
+    try {
+        console.log('💾 Saving profile data:', formData);
 
-            // Если пользователь авторизован, сохраняем на сервер
-            if (window.apiService.isAuthenticated()) {
-                const response = await window.apiService.updateProfile(formData);
-                console.log('✅ Profile updated on server:', response);
-            }
+        let updatedUserData;
 
-            // Сохраняем в localStorage
-            await this.saveUserToLocalStorage(formData);
-            console.log('✅ Profile data saved locally');
-
-            // Обновляем аватар (инициалы могут измениться)
-            this.updateAvatar();
-
-            return true;
-
-        } catch (error) {
-            console.error('❌ Error in saveProfileChanges:', error);
-            throw error;
+        // Если пользователь авторизован, сохраняем на сервер
+        if (window.apiService.isAuthenticated()) {
+            const response = await window.apiService.updateProfile(formData);
+            console.log('✅ Profile updated on server:', response);
+            updatedUserData = response; // Сохраняем ответ сервера
+        } else {
+            // Локальное сохранение
+            updatedUserData = formData;
         }
+
+        // Сохраняем в localStorage
+        await this.saveUserToLocalStorage(updatedUserData);
+        console.log('✅ Profile data saved locally');
+
+        // ВАЖНО: Обновляем данные в интерфейсе
+        this.setProfileData(updatedUserData);
+        
+        // Обновляем аватар (инициалы могут измениться)
+        this.updateAvatar();
+
+        return true;
+
+    } catch (error) {
+        console.error('❌ Error in saveProfileChanges:', error);
+        throw error;
     }
+}
 
     async saveUserToLocalStorage(userData) {
         try {
@@ -1539,9 +1557,16 @@ class UserProfile {
     setProfileData(data) {
         console.log('🔧 Setting profile data:', data);
         
-        if (data.name && this.elements.userNameInput) this.elements.userNameInput.value = data.name;
-        if (data.email && this.elements.userEmailInput) this.elements.userEmailInput.value = data.email;
-        if (data.phone && this.elements.userPhoneInput) this.elements.userPhoneInput.value = data.phone;
+        // Обновляем поля формы
+        if (data.name && this.elements.userNameInput) {
+            this.elements.userNameInput.value = data.name;
+        }
+        if (data.email && this.elements.userEmailInput) {
+            this.elements.userEmailInput.value = data.email;
+        }
+        if (data.phone && this.elements.userPhoneInput) {
+            this.elements.userPhoneInput.value = data.phone;
+        }
         
         // Обработка аватара
         if (data.avatar_url || data.avatar) {
@@ -1553,8 +1578,36 @@ class UserProfile {
             this.resetAvatarToDefault();
         }
         
+        // Обновляем инициалы аватара
         this.updateAvatar();
+        
+        // Блокируем поля после обновления
         this.setFieldsReadOnly(true);
+        
+        console.log('✅ Profile data applied to form');
+    }
+
+    async refreshUserData() {
+        console.log('🔄 Refreshing user data...');
+        
+        try {
+            if (window.apiService.isAuthenticated()) {
+                // Загружаем свежие данные с сервера
+                const userData = await window.apiService.getCurrentUser();
+                console.log('✅ Fresh user data from server:', userData);
+                
+                // Обновляем интерфейс
+                this.setProfileData(userData);
+                
+                // Сохраняем в localStorage
+                this.saveUserToLocalStorage(userData);
+            } else {
+                // Перезагружаем из localStorage
+                this.loadLocalUserData();
+            }
+        } catch (error) {
+            console.error('❌ Error refreshing user data:', error);
+        }
     }
 }
 
