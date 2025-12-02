@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
-=======
-from pydantic import BaseModel, EmailStr, field_validator
->>>>>>> fa5e3c9a53d1ee55e894efa86eb81844d1f858db
 from typing import Optional
 from datetime import datetime
 
@@ -17,37 +13,22 @@ class UserSettings(BaseModel):
 
 class UserBase(BaseModel):
     email: Optional[EmailStr] = None
-<<<<<<< HEAD
     name: Optional[str] = None
     phone: Optional[str] = None
-
-class UserCreate(UserBase):
-    name: str
-=======
-    full_name: Optional[str] = None
-    phone: Optional[str] = None
-
 
 class UserCreate(BaseModel):
     """
     Схема для регистрации пользователя.
-    Ровно то, что шлёт тест:
     - email (обязательно)
     - password (обязательно)
     - full_name (опционально)
     - phone (опционально)
     """
->>>>>>> fa5e3c9a53d1ee55e894efa86eb81844d1f858db
     email: EmailStr
-    phone: str
     password: str
-<<<<<<< HEAD
-    
-=======
-    full_name: Optional[str] = None
+    name: Optional[str] = None
     phone: Optional[str] = None
 
->>>>>>> fa5e3c9a53d1ee55e894efa86eb81844d1f858db
     @field_validator('password')
     def password_strength(cls, v):
         if len(v) < 8:
@@ -56,15 +37,11 @@ class UserCreate(BaseModel):
 
 
 class UserUpdate(UserBase):
-<<<<<<< HEAD
-    phone: Optional[str] = None
-=======
     """
     Обновление профиля: все поля опциональны + настройки.
     """
     settings: Optional[UserSettings] = None
 
->>>>>>> fa5e3c9a53d1ee55e894efa86eb81844d1f858db
 
 class UserResponse(UserBase):
     model_config = ConfigDict(from_attributes=True)
@@ -74,18 +51,12 @@ class UserResponse(UserBase):
     is_verified: bool
     avatar: Optional[str] = None
     created_at: datetime
-<<<<<<< HEAD
     last_login: Optional[datetime] = None
-    
-    # class Config:
-    #     from_attributes = True
-=======
     settings: Optional[UserSettings] = None
 
-    class Config:
-        from_attributes = True
->>>>>>> fa5e3c9a53d1ee55e894efa86eb81844d1f858db
-
+    @property
+    def full_name(self) -> Optional[str]:
+        return self.name  # Или vice versa, в зависимости от того, что использует ваша БД
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
@@ -96,9 +67,6 @@ class ChangePasswordRequest(BaseModel):
         if len(v) < 8:
             raise ValueError('New password must be at least 8 characters long')
         return v
-<<<<<<< HEAD
     
 class UserWithAvatarResponse(UserResponse):
     avatar_url: Optional[str] = None
-=======
->>>>>>> fa5e3c9a53d1ee55e894efa86eb81844d1f858db

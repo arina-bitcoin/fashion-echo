@@ -468,9 +468,9 @@ async def delete_avatar(
     return response_data
 
 
-@router.get("/me/ads", response_model=List[AdResponse])
+@router.get("/me/ads", response_model=list[AdResponse])
 async def get_user_ads(
-        db: Session = Depends(get_db),
+        db: AsyncSession = Depends(get_db),
         current_user: User = Depends(get_current_active_user),
 ):
     """

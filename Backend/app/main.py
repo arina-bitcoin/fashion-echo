@@ -1,11 +1,8 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from Backend.app.core.database import create_db_and_tables
-from Backend.app.config import settings
-from Backend.app.api.api import api_router
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from Backend.app.core.exceptions import FashionEchoException  # <- наш базовый эксепшн
+from Backend.app.config import settings
 
 import sys
 from pathlib import Path
@@ -43,6 +40,9 @@ app.add_middleware(
 )
 
 from fastapi.staticfiles import StaticFiles
+from Backend.app.api.api import api_router
+from fastapi.responses import JSONResponse
+from Backend.app.core.exceptions import FashionEchoException  # <- наш базовый эксепшн
 
 app.mount("/static", StaticFiles(directory="file_storage"), name="static")
 

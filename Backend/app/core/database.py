@@ -75,7 +75,7 @@
 """НАЧАЛО ФАЙЛА!!!"""
 from Backend.app.config import settings
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy.ext.declarative import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import StaticPool
 
 # from sqlalchemy import create_engine
