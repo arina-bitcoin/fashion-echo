@@ -266,7 +266,9 @@
 #     # поэтому просто возвращаем успешный ответ
 #     return {"message": "Successfully logged out"}
 
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Query, Body
+from pydantic import EmailStr
+from typing import Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update
 from Backend.app.core.database import get_db
@@ -304,8 +306,10 @@ async def register(
     db_user = User(
         email=user_data.email,
         hashed_password=hashed_password,
-        name=user_data.name,
-        phone=user_data.phone
+        name=user_data.full_name,
+        phone=user_data.phone,
+        is_active = True,
+        is_verified = False,
     )
     
     db.add(db_user)
@@ -316,24 +320,49 @@ async def register(
 
 @router.post("/login", response_model=Token)
 async def login(
-    login_data: LoginRequest,
-    db: AsyncSession = Depends(get_db)
+    # Вариант 1 – как в тестах: query-параметры
+    email: Optional[EmailStr] = Query(None),
+    password: Optional[str] = Query(None),
+    # Вариант 2 – как в основном приложении: JSON body
+    login_data: Optional[LoginRequest] = Body(None),
+    db: AsyncSession = Depends(get_db),
 ):
+    """
+    Логин: поддерживает и JSON body (LoginRequest),
+    и query-параметры (email/password), как в интеграционном тесте.
+    """
+
+    # Определяем откуда брать данные
+    if login_data is not None:
+        email_value = login_data.email
+        password_value = login_data.password
+    else:
+        email_value = email
+        password_value = password
+
+    # Если каких-то данных нет – 422, как и раньше
+    if not email_value or not password_value:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="email and password are required",
+        )
+
     # Поиск пользователя
-    result = await db.execute(select(User).filter(User.email == login_data.email))
+    result = await db.execute(select(User).filter(User.email == email_value))
     user = result.scalar_one_or_none()
-    if not user or not verify_password(login_data.password, user.hashed_password):
+
+    if not user or not verify_password(password_value, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password"
+            detail="Incorrect email or password",
         )
-    
+
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Inactive user"
+            detail="Inactive user",
         )
-    
+
     # Обновляем время последнего входа
     stmt = (
         update(User)
@@ -343,15 +372,15 @@ async def login(
     )
     await db.execute(stmt)
     await db.commit()
-    
-    # Создание токенов
+
+    # Создание токенов – как было
     access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
     refresh_token = create_refresh_token(data={"sub": str(user.id)})
-    
+
     return Token(
         access_token=access_token,
         refresh_token=refresh_token,
-        token_type="bearer"
+        token_type="bearer",
     )
 
 @router.post("/refresh", response_model=Token)

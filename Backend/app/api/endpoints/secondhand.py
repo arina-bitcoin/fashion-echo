@@ -37,7 +37,7 @@ async def get_secondhands(
         is_active=is_active
     )
     
-    items, total = secondhand_service.get_secondhands(db, filters, skip, limit)
+    items, total = await secondhand_service.get_secondhands(db, filters, skip, limit)
 
     item_models = [
         SecondhandResponse.model_validate(obj, from_attributes=True)
@@ -61,7 +61,7 @@ async def get_secondhands_for_map(
     Получить секондхенды для отображения на карте (простые точки).
     Возвращаем сразу Pydantic-модели, без ORM-магии.
     """
-    secondhands = secondhand_service.get_secondhands_in_bounds(
+    secondhands = await secondhand_service.get_secondhands_in_bounds(
         db,
         bounds.ne_lat,
         bounds.ne_lng,
@@ -99,7 +99,7 @@ async def create_secondhand(
     """
     Создать новый секондхенд (для админов)
     """
-    return secondhand_service.create_secondhand(db, secondhand_data)
+    return await secondhand_service.create_secondhand(db, secondhand_data)
 
 
 @router.get("/{secondhand_id}", response_model=SecondhandResponse)
@@ -110,7 +110,7 @@ async def get_secondhand(
     """
     Получить детальную информацию о секондхенде
     """
-    secondhand = secondhand_service.get_secondhand_by_id(db, secondhand_id)
+    secondhand = await secondhand_service.get_secondhand_by_id(db, secondhand_id)
     if not secondhand:
         raise HTTPException(status_code=404, detail="Secondhand not found")
     return secondhand
@@ -125,7 +125,7 @@ async def update_secondhand(
     """
     Обновить информацию о секондхенде (для админов)
     """
-    updated = secondhand_service.update_secondhand(db, secondhand_id, secondhand_data)
+    updated = await secondhand_service.update_secondhand(db, secondhand_id, secondhand_data)
     if not updated:
         raise HTTPException(status_code=404, detail="Secondhand not found")
     return updated
@@ -139,7 +139,7 @@ async def delete_secondhand(
     """
     Удалить секондхенд (мягкое удаление)
     """
-    success = secondhand_service.delete_secondhand(db, secondhand_id)
+    success = await secondhand_service.delete_secondhand(db, secondhand_id)
     if not success:
         raise HTTPException(status_code=404, detail="Secondhand not found")
     return {"message": "Secondhand deleted successfully"}
@@ -154,7 +154,7 @@ async def get_map_clusters(
     """
     Кластеры секондхендов для карты на основании zoom + границ видимой области.
     """
-    clusters = secondhand_service.get_clusters_in_bounds(
+    clusters = await secondhand_service.get_clusters_in_bounds(
         db=db,
         zoom=zoom,
         ne_lat=bounds.ne_lat,
@@ -213,7 +213,7 @@ async def search_secondhands_by_radius(
     Поиск секондхендов в радиусе от точки.
     Возвращаем упрощённый список точек для карты.
     """
-    secondhands = secondhand_service.search_nearby(db, lat=lat, lng=lng, radius_km=radius_km)
+    secondhands = await secondhand_service.search_nearby(db, lat=lat, lng=lng, radius_km=radius_km)
     # Можно либо вернуть ORM-объекты (они сконвертятся в MapPointResponse),
     # либо явно собрать список словарей.
     return [
