@@ -1,10 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from typing import List
+
 from Backend.app.core.database import get_db
 from Backend.app.core.security import verify_password, get_password_hash
 from Backend.app.dependencies import get_current_active_user
 from Backend.app.models.user import User
+from Backend.app.models.ad import Ad
 from Backend.app.schemas.user import UserResponse, UserUpdate, ChangePasswordRequest
+from Backend.app.schemas.ad import AdResponse
 
 router = APIRouter()
 
@@ -44,6 +48,20 @@ async def update_current_user(
     db.refresh(current_user)
     
     return current_user
+
+
+@router.get("/me/ads", response_model=List[AdResponse])
+async def get_user_ads(
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_active_user),
+):
+    """
+    Вернуть список объявлений текущего пользователя.
+    Используется в интеграционном тесте TestUsersIntegration.test_get_user_ads.
+    """
+    ads = db.query(Ad).filter(Ad.user_id == current_user.id).all()
+    return ads
+
 
 @router.post("/change-password")
 async def change_password(

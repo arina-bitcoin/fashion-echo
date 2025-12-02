@@ -229,3 +229,37 @@ async def debug_db():
         "database_url_sync": db_url_sync,
         "secondhands_count": count
     }
+
+@router.get("/search", response_model=List[MapPointResponse])
+async def search_secondhands_by_radius(
+    lat: float = Query(..., description="Широта центра поиска"),
+    lng: float = Query(..., description="Долгота центра поиска"),
+    radius_km: float = Query(5, gt=0, description="Радиус в км"),
+    db: Session = Depends(get_db),
+):
+    """
+    Поиск секондхендов в радиусе от точки.
+    Возвращаем упрощённый список точек для карты.
+    """
+    secondhands = secondhand_service.search_nearby(db, lat=lat, lng=lng, radius_km=radius_km)
+    # Можно либо вернуть ORM-объекты (они сконвертятся в MapPointResponse),
+    # либо явно собрать список словарей.
+    return [
+        MapPointResponse(
+            id=s.id,
+            name=s.name,
+            latitude=s.latitude,
+            longitude=s.longitude,
+            address=s.address,
+            phone=s.phone,
+        )
+        for s in secondhands
+    ]
+
+# временно
+from Backend.app.core.exceptions import ValidationException
+
+@router.get("/debug/error")
+async def debug_error():
+    # специально бросаем нашу доменную ошибку
+    raise ValidationException("Test validation from debug endpoint")
