@@ -1,34 +1,50 @@
-from sqlalchemy.orm import Session
-from typing import Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from typing import Optional, List
 from Backend.app.models.ad import Ad
 from Backend.app.schemas.ad import AdCreate
 
 class AdService:
     @staticmethod
-    def get_ads(
-        db: Session, 
+    async def get_ads(
+        db: AsyncSession, 
         skip: int = 0, 
         limit: int = 100,
         type: Optional[str] = None,
         category: Optional[str] = None
     ) -> list[Ad]:
-        query = db.query(Ad).filter(Ad.is_active == True)
+        # Создаем базовый запрос
+        stmt = select(Ad).filter(Ad.is_active == True)
         
         if type:
-            query = query.filter(Ad.type == type)
+            stmt = stmt.filter(Ad.type == type)
         if category:
-            query = query.filter(Ad.category == category)
-            
-        return query.offset(skip).limit(limit).all()
+            stmt = stmt.filter(Ad.category == category)
+        
+        # Применяем пагинацию
+        stmt = stmt.offset(skip).limit(limit)
+        
+        # Выполняем запрос
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
     
     @staticmethod
-    def create_ad(db: Session, ad_data: AdCreate, user_id: int) -> Ad:
+    async def create_ad(db: AsyncSession, ad_data: AdCreate, user_id: int) -> Ad:
         db_ad = Ad(**ad_data.dict(), user_id=user_id)
         db.add(db_ad)
-        db.commit()
-        db.refresh(db_ad)
+        await db.commit()
+        await db.refresh(db_ad)
         return db_ad
     
     @staticmethod
-    def get_user_ads(db: Session, user_id: int) -> List[Ad]:
-        return db.query(Ad).filter(Ad.user_id == user_id).all()
+    async def get_ad(db: AsyncSession, ad_id: int) -> Optional[Ad]:
+        """Получить объявление по ID"""
+        stmt = select(Ad).filter(Ad.id == ad_id)
+        result = await db.execute(stmt)
+        return result.scalar_one_or_none()
+    
+    @staticmethod
+    async def get_user_ads(db: AsyncSession, user_id: int) -> List[Ad]:
+        stmt = select(Ad).filter(Ad.user_id == user_id)
+        result = await db.execute(stmt)
+        return list(result.scalars().all())

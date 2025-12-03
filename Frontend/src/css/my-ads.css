@@ -1,0 +1,194 @@
+.my-ads-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 16px;
+}
+
+.my-ads-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.my-ads-title {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--primary-color);
+    letter-spacing: 0.05em;
+}
+
+.my-ads-content {
+    min-height: 400px;
+}
+
+.loading-offers {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    gap: 16px;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border-color);
+    border-top: 3px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.error-message {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.empty-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+}
+
+.empty-state h2 {
+    font-size: 24px;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.empty-state p {
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+}
+
+.my-ad-card {
+    background: var(--card-color);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+    display: flex;
+    gap: 20px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.my-ad-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.ad-card-image {
+    position: relative;
+    width: 200px;
+    min-width: 200px;
+    height: 200px;
+    overflow: hidden;
+    background: var(--secondary-color);
+}
+
+.ad-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.ad-status {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.ad-status.active {
+    background: #10b981;
+    color: white;
+}
+
+.ad-status.inactive {
+    background: #6b7280;
+    color: white;
+}
+
+.ad-card-content {
+    flex: 1;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.ad-card-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.ad-card-price {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.ad-card-meta {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.ad-meta-item {
+    padding: 4px 8px;
+    background: var(--background-color);
+    border-radius: 4px;
+}
+
+.ad-card-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: auto;
+}
+
+.btn-small {
+    padding: 8px 16px;
+    font-size: 14px;
+}
+
+@media (max-width: 768px) {
+    .my-ad-card {
+        flex-direction: column;
+    }
+
+    .ad-card-image {
+        width: 100%;
+        height: 250px;
+    }
+
+    .my-ads-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .my-ads-title {
+        font-size: 24px;
+    }
+}
+

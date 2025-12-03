@@ -1,0 +1,284 @@
+.product-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+}
+
+.product-images {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.main-image-container,
+.secondary-image-container {
+    background: var(--card-color);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+}
+
+.main-image,
+.secondary-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    aspect-ratio: 1 / 1;
+    display: block;
+}
+
+.product-info {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.product-title {
+    color: var(--primary-color);
+    font-size: 2rem;
+    font-weight: 900;
+    margin: 0;
+    line-height: 1.2;
+}
+
+.product-price {
+    color: var(--primary-color);
+    font-size: 2rem;
+    font-weight: 900;
+    margin: 0;
+}
+
+.seller-info {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    padding: 10px 0;
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.product-actions {
+    display: flex;
+    gap: 16px;
+    margin-top: 10px;
+}
+
+.btn-contact,
+.btn-cart {
+    flex: 1;
+    padding: 16px 24px;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-contact {
+    background: var(--primary-color);
+    color: white;
+}
+
+.btn-contact:hover {
+    background: #3a0404;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.btn-cart {
+    background: var(--primary-color);
+    color: white;
+}
+
+.btn-cart:hover {
+    background: #3a0404;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.product-details {
+    margin-top: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.detail-section {
+    background: var(--card-color);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+}
+
+.detail-title {
+    color: var(--primary-color);
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin: 0 0 16px 0;
+}
+
+.detail-content {
+    color: var(--text-primary);
+    font-size: 1rem;
+    line-height: 1.6;
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+.condition-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.condition-list li {
+    color: var(--text-primary);
+    font-size: 1rem;
+    line-height: 1.6;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.condition-list li:last-child {
+    border-bottom: none;
+}
+
+.more-offers-section {
+    max-width: 1200px;
+    margin: 40px auto;
+    padding: 0 20px;
+    text-align: center;
+}
+
+.more-offers-text {
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    margin-bottom: 20px;
+}
+
+.btn-offers {
+    background: var(--primary-color);
+    color: white;
+    padding: 16px 32px;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-offers:hover {
+    background: #3a0404;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+/* Модальное окно с контактами */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.modal.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: var(--card-color);
+    border-radius: 16px;
+    padding: 30px;
+    max-width: 500px;
+    width: 90%;
+    position: relative;
+    box-shadow: var(--shadow-lg);
+}
+
+.modal-close {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 28px;
+    font-weight: bold;
+    color: var(--primary-color);
+    cursor: pointer;
+    line-height: 1;
+}
+
+.modal-close:hover {
+    opacity: 0.7;
+}
+
+.modal-content h2 {
+    color: var(--primary-color);
+    font-size: 1.5rem;
+    margin: 0 0 20px 0;
+}
+
+.contact-info {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.contact-info p {
+    color: var(--text-primary);
+    font-size: 1rem;
+    margin: 0;
+    padding: 10px;
+    background: var(--secondary-color);
+    border-radius: 8px;
+}
+
+/* Адаптивность */
+@media (max-width: 968px) {
+    .product-container {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .product-images {
+        grid-template-columns: 1fr;
+    }
+
+    .main-image,
+    .secondary-image {
+        max-height: 400px;
+    }
+}
+
+@media (max-width: 768px) {
+    .product-container {
+        padding: 15px;
+    }
+
+    .product-title {
+        font-size: 1.5rem;
+    }
+
+    .product-price {
+        font-size: 1.5rem;
+    }
+
+    .product-actions {
+        flex-direction: column;
+    }
+
+    .btn-contact,
+    .btn-cart {
+        width: 100%;
+    }
+}
+

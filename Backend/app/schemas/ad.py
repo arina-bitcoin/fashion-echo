@@ -19,6 +19,8 @@ class AdBase(BaseModel):
     brand: Optional[str] = None
 
 class AdCreate(AdBase):
+    images: Optional[List[str]] = []
+    
     @validator('price')
     def validate_price(cls, v, values):
         if values.get('type') == AdType.SELL and v is None:

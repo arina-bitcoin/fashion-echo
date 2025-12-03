@@ -12,7 +12,8 @@ from fastapi import (
     File,
     UploadFile,
 )
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from Backend.app.core.database import get_db
 from Backend.app.dependencies import get_current_user
@@ -32,10 +33,10 @@ async def get_ads(
     limit: int = 100,
     type: Optional[str] = None,
     category: Optional[str] = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """Получить список объявлений с фильтрацией"""
-    return AdService.get_ads(
+    return await AdService.get_ads(
         db,
         skip=skip,
         limit=limit,
@@ -47,17 +48,17 @@ async def get_ads(
 @router.post("/", response_model=AdResponse)
 async def create_ad(
     ad_data: AdCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Создать новое объявление"""
-    return AdService.create_ad(db, ad_data, current_user.id)
+    return await AdService.create_ad(db, ad_data, current_user.id)
 
 
 @router.get("/{ad_id}", response_model=AdResponse)
-async def get_ad(ad_id: int, db: Session = Depends(get_db)):
+async def get_ad(ad_id: int, db: AsyncSession = Depends(get_db)):
     """Получить объявление по ID"""
-    ad = AdService.get_ad(db, ad_id)
+    ad = await AdService.get_ad(db, ad_id)
     if not ad:
         raise HTTPException(status_code=404, detail="Ad not found")
     return ad
@@ -68,7 +69,7 @@ async def get_ad(ad_id: int, db: Session = Depends(get_db)):
 @router.post("/upload-image")
 async def upload_image(
     file: UploadFile = File(...),  # ВАЖНО: имя параметра file
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -81,8 +82,8 @@ async def upload_image(
     # Валидация типа и размера
     validate_image_file(file)
 
-    # Папка для картинок объявлений
-    upload_dir = Path("media") / "ads"
+    # Папка для картинок объявлений (сохраняем в file_storage для статической раздачи)
+    upload_dir = Path("file_storage") / "ads"
     upload_dir.mkdir(parents=True, exist_ok=True)
 
     # Генерируем уникальное имя файла
@@ -94,9 +95,11 @@ async def upload_image(
     with dest_path.open("wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Тесты ожидают наличие ключа "file_path"
+    # Возвращаем относительный путь от file_storage для использования в статической раздаче
+    relative_path = f"ads/{new_name}"
+    
     return {
-        "file_path": str(dest_path),
+        "file_path": relative_path,
         "filename": new_name,
     }
 

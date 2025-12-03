@@ -1058,6 +1058,64 @@ class UserProfile {
                 });
             }
 
+            // Обработчик кнопки удаления аккаунта
+            const deleteAccountBtn = document.getElementById('delete-account-btn');
+            if (deleteAccountBtn) {
+                deleteAccountBtn.addEventListener('click', () => {
+                    console.log('🗑️ Delete account clicked');
+                    this.deleteAccount();
+                });
+            }
+
+            // Добавляем обработчики для автоматического форматирования телефона в реальном времени
+            if (this.elements.userPhoneInput) {
+                this.elements.userPhoneInput.addEventListener('input', (e) => {
+                    const input = e.target;
+                    const cursorPosition = input.selectionStart;
+                    const oldValue = input.value;
+                    
+                    const formatted = this.formatPhoneNumber(oldValue);
+                    
+                    if (formatted !== oldValue) {
+                        input.value = formatted;
+                        
+                        // Восстанавливаем позицию курсора после форматирования
+                        setTimeout(() => {
+                            let newPosition = cursorPosition;
+                            const lengthDiff = formatted.length - oldValue.length;
+                            
+                            // Корректируем позицию с учетом добавленных символов форматирования
+                            if (lengthDiff > 0) {
+                                // Если были добавлены символы, сдвигаем курсор
+                                newPosition += lengthDiff;
+                            }
+                            
+                            // Ограничиваем позицию курсора
+                            newPosition = Math.min(newPosition, formatted.length);
+                            input.setSelectionRange(newPosition, newPosition);
+                        }, 0);
+                    }
+                });
+                
+                // Также форматируем при вставке текста
+                this.elements.userPhoneInput.addEventListener('paste', (e) => {
+                    e.preventDefault();
+                    const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+                    const formatted = this.formatPhoneNumber(pastedText);
+                    e.target.value = formatted;
+                });
+            }
+
+            if (this.elements.userEmailInput) {
+                this.elements.userEmailInput.addEventListener('blur', (e) => {
+                    // Приводим email к нижнему регистру при потере фокуса
+                    const normalized = e.target.value.toLowerCase().trim();
+                    if (normalized !== e.target.value) {
+                        e.target.value = normalized;
+                    }
+                });
+            }
+
             console.log('✅ All event listeners attached');
         } catch (error) {
             console.error('❌ Error attaching event listeners:', error);
@@ -1311,23 +1369,58 @@ class UserProfile {
                 return;
             }
 
+            // СРАЗУ обновляем поля в UI для более быстрого отклика
+            // (данные уже валидированы)
+            this.setProfileData(formData);
+            this.setFieldsReadOnly(true);
+
             // Сохраняем на сервер или локально
-            await this.saveProfileChanges(formData);
+            const savedData = await this.saveProfileChanges(formData);
+            
+            // Обновляем данные из ответа сервера (может отличаться от отправленных)
+            if (savedData) {
+                this.setProfileData(savedData);
+            }
+
+            // ВАЖНО: Обновляем originalValues новыми сохраненными значениями
+            // чтобы cancelEditing не перезаписывал их
+            if (this.elements.userNameInput) {
+                this.originalValues['user-name'] = this.elements.userNameInput.value;
+            }
+            if (this.elements.userEmailInput) {
+                this.originalValues['user-email'] = this.elements.userEmailInput.value;
+            }
+            if (this.elements.userPhoneInput) {
+                this.originalValues['user-phone'] = this.elements.userPhoneInput.value;
+            }
 
             // Блокируем поля после сохранения
             this.setFieldsReadOnly(true);
             
-            // Сбрасываем состояние редактирования
-            this.cancelEditing();
+            // Очищаем состояние редактирования БЕЗ восстановления старых значений
+            this.originalValues = {};
+            this.isEditing = false;
+            if (this.elements.cancelBtn) {
+                this.elements.cancelBtn.style.display = 'none';
+            }
+
+            // ПРИНУДИТЕЛЬНО обновляем поля еще раз после всех операций
+            // чтобы гарантировать, что новые данные отображаются
+            if (savedData) {
+                setTimeout(() => {
+                    this.setProfileData(savedData);
+                    console.log('🔄 Принудительное обновление данных');
+                }, 100);
+            }
 
             this.hideLoading();
             this.showSuccessMessage('Данные успешно сохранены!');
             
             // Дополнительная проверка: выводим текущие значения
             console.log('🔍 ДАННЫЕ ПОСЛЕ СОХРАНЕНИЯ:');
-            console.log('   Имя:', this.elements.userNameInput.value);
-            console.log('   Email:', this.elements.userEmailInput.value);
-            console.log('   Телефон:', this.elements.userPhoneInput.value);
+            console.log('   Имя:', this.elements.userNameInput?.value);
+            console.log('   Email:', this.elements.userEmailInput?.value);
+            console.log('   Телефон:', this.elements.userPhoneInput?.value);
 
         } catch (error) {
             this.hideLoading();
@@ -1356,13 +1449,29 @@ class UserProfile {
         await this.saveUserToLocalStorage(updatedUserData);
         console.log('✅ Profile data saved locally');
 
-        // ВАЖНО: Обновляем данные в интерфейсе
-        this.setProfileData(updatedUserData);
+        // ВАЖНО: Обновляем данные в интерфейсе сразу после сохранения
+        // Используем данные из ответа сервера или из formData
+        const dataToDisplay = updatedUserData || formData;
+        
+        // Формируем данные для отображения (учитываем разные структуры ответа)
+        const displayData = {
+            name: dataToDisplay.name || formData.name || '',
+            email: dataToDisplay.email || formData.email || '',
+            phone: dataToDisplay.phone || formData.phone || '',
+            avatar: dataToDisplay.avatar,
+            avatar_url: dataToDisplay.avatar_url
+        };
+        
+        console.log('📋 Data to display:', displayData);
+        this.setProfileData(displayData);
         
         // Обновляем аватар (инициалы могут измениться)
         this.updateAvatar();
+        
+        // Убеждаемся, что поля заблокированы после сохранения
+        this.setFieldsReadOnly(true);
 
-        return true;
+        return displayData;
 
     } catch (error) {
         console.error('❌ Error in saveProfileChanges:', error);
@@ -1426,6 +1535,79 @@ class UserProfile {
         return phoneRegex.test(phone.replace(/\s/g, ''));
     }
 
+    // Форматирование телефонного номера в российском формате (работает в реальном времени)
+    formatPhoneNumber(phone) {
+        if (!phone) return '+7';
+        
+        // Удаляем все нечисловые символы кроме +
+        let cleaned = phone.replace(/[^\d+]/g, '');
+        
+        // Ограничиваем максимальную длину
+        if (cleaned.length > 12) {
+            cleaned = cleaned.substring(0, 12);
+        }
+        
+        // Нормализуем начало номера
+        if (cleaned.startsWith('8')) {
+            // 8 заменяем на +7
+            cleaned = '+7' + cleaned.substring(1);
+        } else if (cleaned.startsWith('7') && !cleaned.startsWith('+7')) {
+            // 7 в начале заменяем на +7
+            cleaned = '+7' + cleaned.substring(1);
+        } else if (!cleaned.startsWith('+')) {
+            // Если нет + и есть цифры, добавляем +7
+            if (cleaned.length > 0) {
+                cleaned = '+7' + cleaned;
+            } else {
+                return '+7';
+            }
+        } else if (cleaned.startsWith('+') && !cleaned.startsWith('+7')) {
+            // Если начинается с + но не +7, заменяем
+            cleaned = '+7' + cleaned.substring(1);
+        }
+        
+        // Ограничиваем длину после нормализации
+        if (cleaned.length > 12) {
+            cleaned = cleaned.substring(0, 12);
+        }
+        
+        // Если пусто, возвращаем +7
+        if (!cleaned || cleaned === '+') {
+            return '+7';
+        }
+        
+        // Форматируем по мере ввода: +7 (999) 123-45-67
+        if (cleaned.startsWith('+7')) {
+            const digits = cleaned.substring(2); // Цифры после +7
+            let formatted = '+7';
+            
+            if (digits.length === 0) {
+                return formatted;
+            }
+            
+            // Добавляем первую часть: (999
+            formatted += ' (' + digits.substring(0, 3);
+            
+            if (digits.length > 3) {
+                formatted += ') ' + digits.substring(3, 6);
+                
+                if (digits.length > 6) {
+                    formatted += '-' + digits.substring(6, 8);
+                    
+                    if (digits.length > 8) {
+                        formatted += '-' + digits.substring(8, 10);
+                    }
+                }
+            } else if (digits.length === 3) {
+                formatted += ')';
+            }
+            
+            return formatted;
+        }
+        
+        return cleaned;
+    }
+
     showFieldError(fieldId, message) {
         console.error('❌ Field error:', fieldId, message);
         const field = document.getElementById(fieldId);
@@ -1466,7 +1648,8 @@ class UserProfile {
             input.readOnly = readonly;
             input.style.background = readonly ? 'var(--secondary-color)' : '#fff';
             input.style.border = readonly ? 'none' : '2px solid var(--primary-color)';
-            input.style.borderRadius = readonly ? '9999px' : '8px';
+            // ИСПРАВЛЕНИЕ: Всегда делаем поля круглыми
+            input.style.borderRadius = '9999px';
         });
     }
 
@@ -1589,15 +1772,32 @@ class UserProfile {
     setProfileData(data) {
         console.log('🔧 Setting profile data:', data);
         
-        // Обновляем поля формы
-        if (data.name && this.elements.userNameInput) {
-            this.elements.userNameInput.value = data.name;
+        // ИСПРАВЛЕНИЕ: Всегда обновляем поля формы, даже если значение пустое
+        // Временно убираем readonly для обновления значений
+        if (this.elements.userNameInput) {
+            const wasReadonly = this.elements.userNameInput.readOnly;
+            this.elements.userNameInput.readOnly = false;
+            this.elements.userNameInput.value = data.name || '';
+            this.elements.userNameInput.readOnly = wasReadonly;
+            console.log('✅ Updated name field:', this.elements.userNameInput.value);
         }
-        if (data.email && this.elements.userEmailInput) {
-            this.elements.userEmailInput.value = data.email;
+        if (this.elements.userEmailInput) {
+            // Форматируем email - приводим к нижнему регистру
+            const formattedEmail = data.email ? data.email.toLowerCase().trim() : '';
+            const wasReadonly = this.elements.userEmailInput.readOnly;
+            this.elements.userEmailInput.readOnly = false;
+            this.elements.userEmailInput.value = formattedEmail;
+            this.elements.userEmailInput.readOnly = wasReadonly;
+            console.log('✅ Updated email field:', this.elements.userEmailInput.value);
         }
-        if (data.phone && this.elements.userPhoneInput) {
-            this.elements.userPhoneInput.value = data.phone;
+        if (this.elements.userPhoneInput) {
+            // Форматируем телефон
+            const formattedPhone = data.phone ? this.formatPhoneNumber(data.phone) : '';
+            const wasReadonly = this.elements.userPhoneInput.readOnly;
+            this.elements.userPhoneInput.readOnly = false;
+            this.elements.userPhoneInput.value = formattedPhone;
+            this.elements.userPhoneInput.readOnly = wasReadonly;
+            console.log('✅ Updated phone field:', this.elements.userPhoneInput.value);
         }
         
     //     // Обработка аватара
@@ -1672,6 +1872,54 @@ class UserProfile {
             }
         } catch (error) {
             console.error('❌ Error refreshing user data:', error);
+        }
+    }
+
+    // Удаление аккаунта
+    async deleteAccount() {
+        // Подтверждение удаления
+        const confirmMessage = 'Вы действительно хотите удалить аккаунт? Это действие нельзя отменить.';
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+
+        // Дополнительное подтверждение
+        const doubleConfirm = prompt('Для подтверждения введите "УДАЛИТЬ":');
+        if (doubleConfirm !== 'УДАЛИТЬ') {
+            this.showErrorMessage('Удаление аккаунта отменено');
+            return;
+        }
+
+        try {
+            this.showLoading('Удаление аккаунта...');
+            
+            // Если пользователь авторизован, отправляем запрос на сервер
+            if (window.apiService && window.apiService.isAuthenticated()) {
+                await window.apiService.deleteAccount();
+            }
+            
+            // Очищаем локальные данные
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('fashioneco_current_user');
+            
+            // Очищаем состояние авторизации
+            if (window.authState) {
+                window.authState.currentUser = null;
+                window.authState.updateUI();
+            }
+            
+            this.hideLoading();
+            this.showSuccessMessage('Аккаунт успешно удален');
+            
+            // Перенаправляем на главную страницу через 2 секунды
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 2000);
+            
+        } catch (error) {
+            this.hideLoading();
+            console.error('❌ Error deleting account:', error);
+            this.showErrorMessage('Ошибка при удалении аккаунта: ' + (error.message || 'Неизвестная ошибка'));
         }
     }
 }
