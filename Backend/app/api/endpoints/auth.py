@@ -266,7 +266,7 @@
 #     # поэтому просто возвращаем успешный ответ
 #     return {"message": "Successfully logged out"}
 
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update
 from Backend.app.core.database import get_db
@@ -398,6 +398,7 @@ async def logout(
 
 @router.get("/me", response_model=UserWithAvatarResponse)
 async def get_current_user_info(
+    request: Request,
     current_user: User = Depends(get_current_user)
 ):
     """Получение данных текущего пользователя"""
@@ -405,6 +406,6 @@ async def get_current_user_info(
     
     # Добавляем URL аватара
     if current_user.avatar:
-        user_data.avatar_url = file_service.get_avatar_url(current_user.avatar)
+        user_data.avatar_url = file_service.get_avatar_url(current_user.avatar, request)
     
     return user_data

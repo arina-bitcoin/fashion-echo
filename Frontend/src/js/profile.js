@@ -1089,28 +1089,60 @@ class UserProfile {
             this.showLoading('Загрузка фото...');
 
             let avatarUrl;
+            let response = null; // ← СОЗДАЕМ ПЕРЕМЕННУЮ ЗДЕСЬ
             
             // Если пользователь авторизован, загружаем на сервер
             if (window.apiService.isAuthenticated()) {
-                const response = await window.apiService.uploadAvatar(file);
+                response = await window.apiService.uploadAvatar(file);
                 console.log('✅ Avatar upload response:', response);
                 
-                avatarUrl = response.avatar_url || 
-                           (response.avatar ? `http://localhost:8000/static/${response.avatar}` : null);
+                // avatarUrl = response.avatar_url || 
+                //            (response.avatar ? `http://localhost:8000/static/${response.avatar}` : null);
+                // ИСПРАВЛЕННАЯ ОБРАБОТКА ОТВЕТА
+                if (response.avatar_url) {
+                    avatarUrl = response.avatar_url;
+                } else if (response.avatar) {
+                    // Конструируем правильный URL
+                    // avatarUrl = `http://localhost:8000/static/${response.avatar}`;
+                    const baseUrl = 'http://localhost:8000';
+                    const avatarPath = response.avatar;
+                    
+                    // Убираем возможные дублирующие слеши
+                    const cleanPath = avatarPath.startsWith('/') 
+                        ? avatarPath.slice(1) 
+                        : avatarPath;
+                    
+                // Собираем конечный URL
+                avatarUrl = `${baseUrl}/static/${cleanPath}`;
+                console.log('🔗 Constructed avatar URL:', avatarUrl);
+                }
             } else {
                 // Локальная загрузка (для демо)
                 avatarUrl = await this.readFileAsDataURL(file);
             }
 
             if (avatarUrl) {
-                this.setAvatarImage(avatarUrl);
-                this.hasCustomAvatar = true;
+                // Проверяем доступность изображения перед установкой
+                // const isValid = await this.checkImageUrl(avatarUrl);
                 
-                // Сохраняем в localStorage
-                await this.saveAvatarToLocalStorage(avatarUrl);
-                
-                this.hideLoading();
-                this.showSuccessMessage('Фото профиля успешно обновлено!');
+                // if (isValid) {
+                    this.setAvatarImage(avatarUrl);
+                    this.hasCustomAvatar = true;
+                    
+                    // Используем response
+                    const avatarForStorage = response?.avatar || avatarUrl;
+                    await this.saveAvatarToLocalStorage(avatarForStorage);
+                    
+                    this.hideLoading();
+                    this.showSuccessMessage('Фото профиля успешно обновлено!');
+                // } else {
+                //     this.hideLoading();
+                //     this.showErrorMessage('Не удалось загрузить изображение. Проверьте URL.');
+                //     console.error('Invalid image URL:', avatarUrl);
+                // }
+            // } else {
+            //     this.hideLoading();
+            //     this.showErrorMessage('Не удалось получить URL аватара');
             }
 
         } catch (error) {
@@ -1568,10 +1600,43 @@ class UserProfile {
             this.elements.userPhoneInput.value = data.phone;
         }
         
-        // Обработка аватара
+    //     // Обработка аватара
+    //     if (data.avatar_url || data.avatar) {
+    //         const avatarUrl = data.avatar_url || 
+    //                         (data.avatar ? `http://localhost:8000/static/${data.avatar}` : data.avatar);
+    //         this.setAvatarImage(avatarUrl);
+    //         this.hasCustomAvatar = true;
+    //     } else {
+    //         this.resetAvatarToDefault();
+    //     }
+        
+    //     // Обновляем инициалы аватара
+    //     this.updateAvatar();
+        
+    //     // Блокируем поля после обновления
+    //     this.setFieldsReadOnly(true);
+        
+    //     console.log('✅ Profile data applied to form');
+    // }
+
+    // Обработка аватара - ИСПРАВЛЕННАЯ ВЕРСИЯ
         if (data.avatar_url || data.avatar) {
-            const avatarUrl = data.avatar_url || 
-                            (data.avatar ? `http://localhost:8000/static/${data.avatar}` : data.avatar);
+            let avatarUrl;
+            
+            if (data.avatar_url) {
+                // Если есть прямой URL
+                avatarUrl = data.avatar_url;
+            } else if (data.avatar) {
+                // Если есть путь к файлу
+                // Убедимся, что путь начинается правильно
+                // const avatarPath = data.avatar.startsWith('images/') ? data.avatar : `images/avatars/${data.avatar}`;
+                // avatarUrl = `http://localhost:8000/static/${avatarPath}`;
+                const baseUrl = 'http://localhost:8000';
+                const avatarPath = data.avatar;
+                avatarUrl = `${baseUrl}/static/${avatarPath}`;
+            }
+            
+            console.log('🖼️ Avatar URL:', avatarUrl);
             this.setAvatarImage(avatarUrl);
             this.hasCustomAvatar = true;
         } else {

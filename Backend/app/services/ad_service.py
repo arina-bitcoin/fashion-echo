@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import Optional
 from Backend.app.models.ad import Ad
 from Backend.app.schemas.ad import AdCreate
 
@@ -11,7 +11,7 @@ class AdService:
         limit: int = 100,
         type: Optional[str] = None,
         category: Optional[str] = None
-    ) -> List[Ad]:
+    ) -> list[Ad]:
         query = db.query(Ad).filter(Ad.is_active == True)
         
         if type:

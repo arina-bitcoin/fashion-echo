@@ -296,7 +296,7 @@
 
 
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update
 # from sqlalchemy.orm import Session
@@ -315,6 +315,7 @@ router = APIRouter()
 
 @router.get("/me", response_model=UserWithAvatarResponse)
 async def get_current_user_info(
+    request: Request,
     current_user: User = Depends(get_current_active_user)
 ):
     """Получение данных текущего пользователя"""
@@ -322,13 +323,16 @@ async def get_current_user_info(
     
     # Добавляем URL аватара
     if current_user.avatar:
-        user_data.avatar_url = file_service.get_avatar_url(current_user.avatar)
+        user_data.avatar_url = file_service.get_avatar_url(current_user.avatar, request)
+    else:
+        user_data.avatar_url = None
     
     return user_data
 
 @router.put("/me", response_model=UserWithAvatarResponse)
 async def update_current_user(
     user_data: UserUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -389,12 +393,15 @@ async def update_current_user(
     # Формируем ответ с URL аватара
     response_data = UserWithAvatarResponse.model_validate(updated_user)
     if updated_user.avatar:
-        response_data.avatar_url = file_service.get_avatar_url(updated_user.avatar)
+        response_data.avatar_url = file_service.get_avatar_url(updated_user.avatar, request)
+    else:
+        response_data.avatar_url = None
     
     return response_data
 
 @router.post("/me/avatar", response_model=UserWithAvatarResponse)
 async def upload_avatar(
+    request: Request,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
@@ -424,7 +431,7 @@ async def upload_avatar(
         
         # Формируем ответ
         response_data = UserWithAvatarResponse.model_validate(updated_user)
-        response_data.avatar_url = file_service.get_avatar_url(avatar_path)
+        response_data.avatar_url = file_service.get_avatar_url(avatar_path, request)
         
         return response_data
         
@@ -436,6 +443,7 @@ async def upload_avatar(
 
 @router.delete("/me/avatar", response_model=UserWithAvatarResponse)
 async def delete_avatar(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -465,6 +473,7 @@ async def delete_avatar(
     
     # Формируем ответ
     response_data = UserWithAvatarResponse.model_validate(updated_user)
+    response_data.avatar_url = None
     return response_data
 
 

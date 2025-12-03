@@ -145,8 +145,17 @@ class ApiService {
                 const errorText = await response.text();
                 throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
-            
-            return await response.json();
+
+            const data = await response.json();
+        
+        // Формируем полный URL для аватара
+        if (data.avatar) {
+            data.avatar_url = `http://localhost:8000/static/${data.avatar}`;
+            console.log('✅ Avatar URL:', data.avatar_url);
+        }
+        
+        return data;
+            // return await response.json();
         } catch (error) {
             console.error('❌ Avatar upload error:', error);
             throw error;
