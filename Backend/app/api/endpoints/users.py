@@ -298,7 +298,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, update
+from sqlalchemy import select, func, update, delete
 # from sqlalchemy.orm import Session
 # from typing import List
 
@@ -486,7 +486,9 @@ async def get_user_ads(
     Вернуть список объявлений текущего пользователя.
     Используется в интеграционном тесте TestUsersIntegration.test_get_user_ads.
     """
-    ads = db.query(Ad).filter(Ad.user_id == current_user.id).all()
+    stmt = select(Ad).filter(Ad.user_id == current_user.id)
+    result = await db.execute(stmt)
+    ads = list(result.scalars().all())
     return ads
 
 
@@ -531,3 +533,22 @@ async def deactivate_account(
     await db.commit()
     
     return {"message": "Account deactivated successfully"}
+
+@router.delete("/me/delete")
+async def delete_account(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Полное удаление аккаунта пользователя"""
+    user_id = current_user.id
+    
+    # Удаляем аватар если есть
+    if current_user.avatar:
+        file_service.delete_avatar(current_user.avatar)
+    
+    # Удаляем пользователя из базы данных
+    stmt = delete(User).where(User.id == user_id)
+    await db.execute(stmt)
+    await db.commit()
+    
+    return {"message": "Account deleted successfully"}

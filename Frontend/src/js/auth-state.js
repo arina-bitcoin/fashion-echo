@@ -39,6 +39,13 @@ class AuthStateManager {
             const userData = await apiService.getCurrentUser();
             this.currentUser = userData;
             console.log('✅ Current user loaded from API:', this.currentUser);
+            console.log('🖼️ Avatar data:', {
+                avatar: this.currentUser.avatar,
+                avatar_url: this.currentUser.avatar_url
+            });
+            
+            // ВАЖНО: Обновляем UI после загрузки данных пользователя
+            this.updateUI();
         } catch (error) {
             console.error('❌ Error loading current user from API:', error);
             
@@ -47,6 +54,9 @@ class AuthStateManager {
             apiService.clearToken();
             
             console.log('🔄 Cleared invalid token and user data');
+            
+            // Обновляем UI после очистки
+            this.updateUI();
         }
     }
 
@@ -62,12 +72,15 @@ class AuthStateManager {
 
         console.log('📨 Login response:', response);
 
-        // ИСПРАВЛЕНИЕ: Проверяем наличие access_token (а не access_token)
+        // Проверяем наличие access_token в ответе
         if (response.access_token) {
             apiService.setToken(response.access_token);
             
-            // Загружаем данные пользователя с бекенда
-            await this.loadCurrentUserFromAPI();
+            // ОПТИМИЗАЦИЯ: Загружаем пользователя асинхронно, не блокируя переход
+            // Это ускоряет процесс входа - пользователь увидит главную страницу быстрее
+            this.loadCurrentUserFromAPI().catch(error => {
+                console.warn('⚠️ Failed to load user data after login (non-critical):', error);
+            });
         } else {
             // ДОБАВЛЯЕМ ДЕТАЛЬНУЮ ОТЛАДКУ
             console.log('🔍 Token debug - response keys:', Object.keys(response));
@@ -193,9 +206,36 @@ async register(userData) {
             if (avatarBtn) avatarBtn.style.display = 'block';
 
             if (avatarImg) {
-                if (this.currentUser.avatar) {
-                    avatarImg.src = this.currentUser.avatar;
+                // ИСПРАВЛЕНИЕ: Проверяем avatar_url в первую очередь (сервер возвращает его)
+                // Если нет avatar_url, проверяем avatar и формируем URL
+                let avatarUrl = null;
+                
+                if (this.currentUser.avatar_url) {
+                    // Используем готовый URL с сервера
+                    avatarUrl = this.currentUser.avatar_url;
+                } else if (this.currentUser.avatar) {
+                    // Если есть только путь к файлу, формируем полный URL
+                    const avatarPath = this.currentUser.avatar;
+                    const cleanPath = avatarPath.startsWith('/') ? avatarPath.slice(1) : avatarPath;
+                    avatarUrl = `http://localhost:8000/static/${cleanPath}`;
+                }
+                
+                if (avatarUrl) {
+                    // Устанавливаем аватар с обработкой ошибок
+                    avatarImg.onerror = () => {
+                        console.warn('⚠️ Failed to load avatar image, using initials');
+                        this.createInitialsAvatar(avatarImg, this.currentUser.name);
+                    };
+                    avatarImg.onload = () => {
+                        console.log('✅ Avatar image loaded successfully');
+                    };
+                    avatarImg.src = avatarUrl;
+                    avatarImg.style.display = 'block';
                 } else {
+                    // Если аватара нет, создаем инициалы
+                    // Очищаем src перед созданием инициалов
+                    avatarImg.onerror = null;
+                    avatarImg.onload = null;
                     this.createInitialsAvatar(avatarImg, this.currentUser.name);
                 }
             }

@@ -91,7 +91,7 @@ engine = create_async_engine(
     # Важные настройки для SQLite
     connect_args={"check_same_thread": False},  # Разрешаем доступ из разных потоков
     poolclass=StaticPool,  # Статический пул для SQLite
-    echo=True  # Логирование SQL запросов (отключите в продакшене)
+    echo=settings.DEBUG  # Логирование SQL запросов только в режиме отладки
 )
 
 """Синхронная сессия -- не подходит"""

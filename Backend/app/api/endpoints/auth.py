@@ -269,6 +269,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update
+from datetime import datetime
 from Backend.app.core.database import get_db
 from Backend.app.core.security import (
     verify_password, 
@@ -334,15 +335,16 @@ async def login(
             detail="Inactive user"
         )
     
-    # Обновляем время последнего входа
-    stmt = (
-        update(User)
-        .where(User.id == user.id)
-        .values(last_login=func.now())
-        .execution_options(synchronize_session="fetch")
-    )
-    await db.execute(stmt)
-    await db.commit()
+    # Обновляем время последнего входа (не блокируем создание токенов)
+    # ОПТИМИЗАЦИЯ: делаем обновление last_login необязательным, чтобы не замедлять логин
+    try:
+        user.last_login = datetime.utcnow()
+        await db.commit()
+    except Exception as e:
+        # Если обновление не удалось - не критично, продолжаем логин
+        print(f"⚠️ Failed to update last_login: {e}")
+    
+    # Убрали db.refresh - он не нужен и вызывает дополнительный запрос к БД
     
     # Создание токенов
     access_token = create_access_token(data={"sub": str(user.id), "email": user.email})

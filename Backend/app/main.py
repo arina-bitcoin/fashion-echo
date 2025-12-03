@@ -29,11 +29,10 @@ app = FastAPI(
 
 
 # ---- CORS ----
+# Разрешаем все origins для разработки (в продакшене нужно ограничить)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000",
-                   "http://127.0.0.1:3000",
-                   "http://[::1]:3000"],  # URL вашего фронтенда
+    allow_origins=["*"],  # В разработке разрешаем все origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -49,12 +48,17 @@ app.mount("/static", StaticFiles(directory="file_storage"), name="static")
 # Добавьте обработчик ошибок для гарантии CORS headers
 @app.exception_handler(Exception)
 async def universal_exception_handler(request: Request, exc: Exception):
+    import traceback
+    print(f"❌ Unhandled exception: {exc}")
+    traceback.print_exc()
+    
     response = JSONResponse(
         status_code=500,
         content={"detail": "Internal server error"}
     )
-    # Принудительно добавляем CORS headers
-    response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
+    # Принудительно добавляем CORS headers для всех origins
+    origin = request.headers.get("origin", "*")
+    response.headers["Access-Control-Allow-Origin"] = origin
     response.headers["Access-Control-Allow-Credentials"] = "true"
     response.headers["Access-Control-Allow-Methods"] = "*"
     response.headers["Access-Control-Allow-Headers"] = "*"

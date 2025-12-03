@@ -35,6 +35,129 @@ class AuthManager {
 
         // Enter в формах
         this.setupEnterHandlers();
+        
+        // Добавляем форматирование телефона в реальном времени на странице регистрации
+        this.setupPhoneFormatting();
+    }
+    
+    // Форматирование телефонного номера в российском формате (работает в реальном времени)
+    formatPhoneNumber(phone) {
+        if (!phone) return '+7';
+        
+        // Удаляем все нечисловые символы кроме +
+        let cleaned = phone.replace(/[^\d+]/g, '');
+        
+        // Ограничиваем максимальную длину
+        if (cleaned.length > 12) {
+            cleaned = cleaned.substring(0, 12);
+        }
+        
+        // Нормализуем начало номера
+        if (cleaned.startsWith('8')) {
+            // 8 заменяем на +7
+            cleaned = '+7' + cleaned.substring(1);
+        } else if (cleaned.startsWith('7') && !cleaned.startsWith('+7')) {
+            // 7 в начале заменяем на +7
+            cleaned = '+7' + cleaned.substring(1);
+        } else if (!cleaned.startsWith('+')) {
+            // Если нет + и есть цифры, добавляем +7
+            if (cleaned.length > 0) {
+                cleaned = '+7' + cleaned;
+            } else {
+                return '+7';
+            }
+        } else if (cleaned.startsWith('+') && !cleaned.startsWith('+7')) {
+            // Если начинается с + но не +7, заменяем
+            cleaned = '+7' + cleaned.substring(1);
+        }
+        
+        // Ограничиваем длину после нормализации
+        if (cleaned.length > 12) {
+            cleaned = cleaned.substring(0, 12);
+        }
+        
+        // Если пусто, возвращаем +7
+        if (!cleaned || cleaned === '+') {
+            return '+7';
+        }
+        
+        // Форматируем по мере ввода: +7 (999) 123-45-67
+        if (cleaned.startsWith('+7')) {
+            const digits = cleaned.substring(2); // Цифры после +7
+            let formatted = '+7';
+            
+            if (digits.length === 0) {
+                return formatted;
+            }
+            
+            // Добавляем первую часть: (999
+            formatted += ' (' + digits.substring(0, 3);
+            
+            if (digits.length > 3) {
+                formatted += ') ' + digits.substring(3, 6);
+                
+                if (digits.length > 6) {
+                    formatted += '-' + digits.substring(6, 8);
+                    
+                    if (digits.length > 8) {
+                        formatted += '-' + digits.substring(8, 10);
+                    }
+                }
+            } else if (digits.length === 3) {
+                formatted += ')';
+            }
+            
+            return formatted;
+        }
+        
+        return cleaned;
+    }
+    
+    setupPhoneFormatting() {
+        const phoneInput = document.getElementById('reg-phone');
+        if (phoneInput) {
+            phoneInput.addEventListener('input', (e) => {
+                const input = e.target;
+                const cursorPosition = input.selectionStart;
+                const oldValue = input.value;
+                
+                const formatted = this.formatPhoneNumber(oldValue);
+                
+                if (formatted !== oldValue) {
+                    input.value = formatted;
+                    
+                    // Восстанавливаем позицию курсора
+                    setTimeout(() => {
+                        let newPosition = cursorPosition;
+                        const lengthDiff = formatted.length - oldValue.length;
+                        if (lengthDiff > 0) {
+                            newPosition += lengthDiff;
+                        }
+                        newPosition = Math.min(newPosition, formatted.length);
+                        input.setSelectionRange(newPosition, newPosition);
+                    }, 0);
+                }
+            });
+            
+            // Форматируем при вставке
+            phoneInput.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+                const formatted = this.formatPhoneNumber(pastedText);
+                e.target.value = formatted;
+            });
+        }
+        
+        // Добавляем форматирование email (приведение к нижнему регистру)
+        const emailInput = document.getElementById('reg-email');
+        if (emailInput) {
+            emailInput.addEventListener('blur', (e) => {
+                const normalized = e.target.value.toLowerCase().trim();
+                if (normalized !== e.target.value) {
+                    e.target.value = normalized;
+                }
+            });
+        }
     }
 
     setupEnterHandlers() {
@@ -110,7 +233,17 @@ class AuthManager {
             
         } catch (error) {
             this.hideLoading();
-            this.handleAuthError(error, 'login');
+            // При ошибке логина показываем ошибку в полях
+            const errorMessage = error.message || '';
+            if (errorMessage.includes('Incorrect email or password') || 
+                errorMessage.includes('401') ||
+                errorMessage.includes('Неверный')) {
+                // Показываем ошибку в обоих полях для неверных учетных данных
+                this.setFieldError(document.getElementById('login-email'), 'Неверный email или пароль');
+                this.setFieldError(document.getElementById('login-pass'), 'Неверный email или пароль');
+            } else {
+                this.handleAuthError(error, 'login');
+            }
         }
     }
 
@@ -211,6 +344,7 @@ class AuthManager {
                 fieldContainer.appendChild(errorElement);
             }
             errorElement.textContent = message;
+            errorElement.style.display = 'block';
         }
     }
 
@@ -221,6 +355,7 @@ class AuthManager {
             const errorElement = field.querySelector('.error-message');
             if (errorElement) {
                 errorElement.style.display = 'none';
+                errorElement.textContent = '';
             }
         });
     }
@@ -248,10 +383,21 @@ class AuthManager {
         
         let userMessage = error.message || 'Произошла неизвестная ошибка';
         
-        if (userMessage.includes('Email already registered')) {
+        // Обработка различных типов ошибок
+        if (userMessage.includes('Email already registered') || userMessage.includes('already registered')) {
             userMessage = 'Пользователь с таким email уже существует';
-        } else if (userMessage.includes('Неверный email')) {
+        } else if (userMessage.includes('Incorrect email or password') || 
+                   userMessage.includes('Неверный email') ||
+                   userMessage.includes('401')) {
             userMessage = 'Неверный email или пароль';
+        } else if (userMessage.includes('Inactive user')) {
+            userMessage = 'Аккаунт неактивен. Обратитесь к администратору';
+        } else if (userMessage.includes('HTTP 401')) {
+            userMessage = 'Неверный email или пароль';
+        } else if (userMessage.includes('HTTP 400')) {
+            userMessage = 'Ошибка при обработке запроса. Проверьте введенные данные';
+        } else if (userMessage.includes('NetworkError') || userMessage.includes('Failed to fetch')) {
+            userMessage = 'Ошибка подключения к серверу. Проверьте подключение к интернету';
         }
         
         this.showError(userMessage);
