@@ -41,6 +41,7 @@ class AdService:
         if active_only:
             stmt = stmt.where(Ad.is_active == True)
         
+        # Фильтр по типу
         if type:
             stmt = stmt.where(Ad.type == type)
         if category:

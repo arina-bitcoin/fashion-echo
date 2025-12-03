@@ -8,25 +8,149 @@
 }
 
 .product-images {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 16px;
 }
 
-.main-image-container,
-.secondary-image-container {
+.main-image-container {
+    position: relative;
     background: var(--card-color);
     border-radius: 16px;
     overflow: hidden;
     box-shadow: var(--shadow);
+    cursor: pointer;
 }
 
-.main-image,
-.secondary-image {
+.main-image {
     width: 100%;
     height: 100%;
     object-fit: cover;
     aspect-ratio: 1 / 1;
+    display: block;
+    transition: transform 0.3s ease;
+}
+
+.main-image-container:hover .main-image {
+    transform: scale(1.05);
+}
+
+.image-nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(75, 5, 5, 0.8);
+    color: white;
+    border: none;
+    width: 48px;
+    height: 48px;
+    border-radius: 100%;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease, background 0.3s ease;
+    z-index: 10;
+}
+
+.main-image-container:hover .image-nav-btn {
+    opacity: 1;
+}
+
+.image-nav-btn:hover {
+    background: rgba(75, 5, 5, 1);
+}
+
+.prev-btn {
+    left: 16px;
+}
+
+.next-btn {
+    right: 16px;
+}
+
+.image-indicator {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+}
+
+.image-indicator-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 100%;
+    background: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    transition: background 0.3s ease, transform 0.3s ease;
+}
+
+.image-indicator-dot.active {
+    background: white;
+    transform: scale(1.3);
+}
+
+.secondary-image-container {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary-color) var(--secondary-color);
+}
+
+.secondary-image-container::-webkit-scrollbar {
+    height: 6px;
+}
+
+.secondary-image-container::-webkit-scrollbar-track {
+    background: var(--secondary-color);
+    border-radius: 3px;
+}
+
+.secondary-image-container::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 3px;
+}
+
+.secondary-image-container::-webkit-scrollbar-thumb:hover {
+    background: #3a0404;
+}
+
+.secondary-image-item {
+    position: relative;
+    background: var(--card-color);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    aspect-ratio: 1 / 1;
+    border: 2px solid transparent;
+    transition: border-color 0.3s ease, transform 0.3s ease;
+    flex-shrink: 0;
+    width: 100px;
+    height: 100px;
+}
+
+.secondary-image-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.secondary-image-item.active {
+    border-color: var(--primary-color);
+}
+
+.secondary-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
     display: block;
 }
 
@@ -67,14 +191,16 @@
 
 .btn-contact,
 .btn-cart {
-    flex: 1;
-    padding: 16px 24px;
+    flex: 0.5;
+    padding: 8px 16px;
     border: none;
-    border-radius: 12px;
-    font-size: 1rem;
-    font-weight: 700;
+    border-radius: 9999px;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
+    font-size: 1rem;
+    text-decoration: none;
+    text-align: center;
 }
 
 .btn-contact {
@@ -85,7 +211,6 @@
 .btn-contact:hover {
     background: #3a0404;
     transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
 }
 
 .btn-cart {
@@ -96,7 +221,6 @@
 .btn-cart:hover {
     background: #3a0404;
     transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
 }
 
 .product-details {
@@ -250,11 +374,15 @@
     }
 
     .product-images {
-        grid-template-columns: 1fr;
+        flex-direction: column;
     }
 
-    .main-image,
-    .secondary-image {
+    .secondary-image-item {
+        width: 80px;
+        height: 80px;
+    }
+
+    .main-image {
         max-height: 400px;
     }
 }
@@ -278,7 +406,13 @@
 
     .btn-contact,
     .btn-cart {
-        width: 100%;
+        padding: 12px 24px;
+        font-size: 1rem;
+    }
+
+    .secondary-image-item {
+        width: 70px;
+        height: 70px;
     }
 }
 

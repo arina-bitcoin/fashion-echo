@@ -57,6 +57,7 @@ async def get_ads(
         db=db,
         skip=skip,
         limit=limit,
+        status=status,
         type=type,
         category=category,
         active_only=True
@@ -359,7 +360,16 @@ async def create_ad(
     current_user: User = Depends(get_current_user),
 ):
     """Создать новое объявление"""
-    return await AdService.create_ad(db, ad_data, current_user.id)
+    # Логируем входящие данные для отладки
+    import json
+    print(f"📤 Создание объявления с изображениями: {json.dumps(ad_data.images, indent=2) if ad_data.images else 'Нет изображений'}")
+    
+    ad = await AdService.create_ad(db, ad_data, current_user.id)
+    
+    # Логируем сохраненные изображения
+    print(f"✅ Объявление создано. Сохраненные изображения: {json.dumps(ad.images if ad.images else [], indent=2)}")
+    
+    return ad
 
 
 @router.put("/{ad_id}", response_model=AdResponse)
