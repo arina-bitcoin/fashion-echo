@@ -29,10 +29,20 @@ router = APIRouter()
 
 @router.get("/", response_model=List[AdResponse])
 async def get_ads(
-    skip: int = 0,
-    limit: int = 100,
-    type: Optional[str] = None,
-    category: Optional[str] = None,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    status: Optional[str] = Query(None, description="all, active, inactive"),
+    type: Optional[str] = Query(None, description="sell, exchange, buy_request"),
+    main_categories: Optional[List[str]] = Query(None, description="men, women, kids, unisex, baby"),
+    subcategories: Optional[List[str]] = Query(None, description="formal, casual, sports, outerwear, underwear, swimwear, accessories, shoes, bags, jewelry"),
+    seasons: Optional[List[str]] = Query(None, description="winter, spring, summer, autumn, all_season"),
+    min_price: Optional[float] = Query(None, ge=0),
+    max_price: Optional[float] = Query(None, ge=0),
+    condition: Optional[List[str]] = Query(None, description="new, like_new, excellent, good, satisfactory, needs_repair"),
+    sizes: Optional[List[str]] = Query(None),
+    colors: Optional[List[str]] = Query(None),
+    search: Optional[str] = Query(None, description="Текстовый поиск"),
+    sort: Optional[str] = Query("newest", description="newest, oldest, price_asc, price_desc, popular"),
     db: AsyncSession = Depends(get_db),
 ):
     """Получить список объявлений с фильтрацией"""
@@ -40,8 +50,18 @@ async def get_ads(
         db,
         skip=skip,
         limit=limit,
+        status=status,
         type=type,
-        category=category,
+        main_categories=main_categories,
+        subcategories=subcategories,
+        seasons=seasons,
+        min_price=min_price,
+        max_price=max_price,
+        condition=condition,
+        sizes=sizes,
+        colors=colors,
+        search=search,
+        sort=sort,
     )
 
 
@@ -52,7 +72,16 @@ async def create_ad(
     current_user: User = Depends(get_current_user),
 ):
     """Создать новое объявление"""
-    return await AdService.create_ad(db, ad_data, current_user.id)
+    # Логируем входящие данные для отладки
+    import json
+    print(f"📤 Создание объявления с изображениями: {json.dumps(ad_data.images, indent=2) if ad_data.images else 'Нет изображений'}")
+    
+    ad = await AdService.create_ad(db, ad_data, current_user.id)
+    
+    # Логируем сохраненные изображения
+    print(f"✅ Объявление создано. Сохраненные изображения: {json.dumps(ad.images if ad.images else [], indent=2)}")
+    
+    return ad
 
 
 @router.get("/{ad_id}", response_model=AdResponse)
@@ -82,8 +111,12 @@ async def upload_image(
     # Валидация типа и размера
     validate_image_file(file)
 
-    # Папка для картинок объявлений (сохраняем в file_storage для статической раздачи)
-    upload_dir = Path("file_storage") / "ads"
+    # Папка для картинок объявлений (сохраняем в File_storage для статической раздачи)
+    # Проверяем корень проекта (на уровень выше Backend)
+    project_root = Path(__file__).parent.parent.parent.parent
+    upload_dir = project_root / "File_storage" / "ads"
+    if not upload_dir.exists():
+        upload_dir = project_root / "Backend" / "file_storage" / "ads"
     upload_dir.mkdir(parents=True, exist_ok=True)
 
     # Генерируем уникальное имя файла

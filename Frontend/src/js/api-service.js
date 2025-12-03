@@ -200,9 +200,40 @@ class ApiService {
     async getAds(params = {}) {
         console.log('📋 Getting ads with params:', params);
         const queryParams = new URLSearchParams();
-        if (params.skip) queryParams.append('skip', params.skip);
-        if (params.limit) queryParams.append('limit', params.limit);
+        
+        // Базовые параметры
+        if (params.skip !== undefined) queryParams.append('skip', params.skip);
+        if (params.limit !== undefined) queryParams.append('limit', params.limit);
+        if (params.status) queryParams.append('status', params.status);
         if (params.type) queryParams.append('type', params.type);
+        if (params.search) queryParams.append('search', params.search);
+        if (params.sort) queryParams.append('sort', params.sort);
+        
+        // Ценовой диапазон
+        if (params.min_price !== undefined) queryParams.append('min_price', params.min_price);
+        if (params.max_price !== undefined) queryParams.append('max_price', params.max_price);
+        
+        // Массивы (категории, подкатегории, сезоны, состояния, размеры, цвета)
+        if (params.main_categories && Array.isArray(params.main_categories)) {
+            params.main_categories.forEach(cat => queryParams.append('main_categories', cat));
+        }
+        if (params.subcategories && Array.isArray(params.subcategories)) {
+            params.subcategories.forEach(sub => queryParams.append('subcategories', sub));
+        }
+        if (params.seasons && Array.isArray(params.seasons)) {
+            params.seasons.forEach(season => queryParams.append('seasons', season));
+        }
+        if (params.condition && Array.isArray(params.condition)) {
+            params.condition.forEach(cond => queryParams.append('condition', cond));
+        }
+        if (params.sizes && Array.isArray(params.sizes)) {
+            params.sizes.forEach(size => queryParams.append('sizes', size));
+        }
+        if (params.colors && Array.isArray(params.colors)) {
+            params.colors.forEach(color => queryParams.append('colors', color));
+        }
+        
+        // Обратная совместимость
         if (params.category) queryParams.append('category', params.category);
         
         const queryString = queryParams.toString();

@@ -1,6 +1,6 @@
 class CreateAdPage {
     constructor() {
-        this.uploadedImages = [];
+        this.uploadedImages = []; // Массив объектов {file_path, preview_url, filename}
         this.elements = {
             form: document.getElementById('create-ad-form'),
             adType: document.getElementById('ad-type'),
@@ -88,35 +88,59 @@ class CreateAdPage {
 
         for (let file of Array.from(files)) {
             try {
-                // Показываем превью сразу
+                // Создаем временное превью для отображения во время загрузки
                 const previewUrl = URL.createObjectURL(file);
-                this.addImagePreview(previewUrl, file.name);
-
+                
                 // Загружаем на сервер
                 const response = await window.apiService.uploadAdImage(file);
                 console.log('✅ Изображение загружено:', response);
                 
-                // Сохраняем путь к изображению (путь уже нормализован на бэкенде)
-                this.uploadedImages.push(response.file_path);
+                // Проверяем, не загружено ли уже это изображение
+                const isDuplicate = this.uploadedImages.some(img => img.file_path === response.file_path);
+                if (isDuplicate) {
+                    console.warn('⚠️ Изображение уже загружено, пропускаем:', response.file_path);
+                    URL.revokeObjectURL(previewUrl);
+                    continue;
+                }
+                
+                // Сохраняем информацию об изображении
+                const imageData = {
+                    file_path: response.file_path,
+                    preview_url: previewUrl,
+                    filename: file.name,
+                    server_filename: response.filename
+                };
+                
+                this.uploadedImages.push(imageData);
+                
+                // Добавляем превью с правильной связью
+                this.addImagePreview(imageData);
             } catch (error) {
                 console.error('❌ Ошибка загрузки изображения:', error);
                 alert(`Ошибка загрузки изображения ${file.name}: ${error.message}`);
             }
         }
+
+        // Очищаем input, чтобы можно было загрузить те же файлы снова
+        if (this.elements.imageInput) {
+            this.elements.imageInput.value = '';
+        }
     }
 
-    addImagePreview(url, filename) {
+    addImagePreview(imageData) {
         const preview = document.createElement('div');
         preview.className = 'image-preview';
+        preview.setAttribute('data-file-path', imageData.file_path);
         preview.innerHTML = `
-            <img src="${url}" alt="${filename}">
-            <button type="button" class="remove-image-btn" data-filename="${filename}">×</button>
+            <img src="${imageData.preview_url}" alt="${imageData.filename}">
+            <button type="button" class="remove-image-btn" data-file-path="${imageData.file_path}">×</button>
         `;
 
         // Обработчик удаления изображения
         const removeBtn = preview.querySelector('.remove-image-btn');
-        removeBtn.addEventListener('click', () => {
-            this.removeImagePreview(preview, filename);
+        removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.removeImagePreview(preview, imageData.file_path);
         });
 
         if (this.elements.imagePreviewContainer) {
@@ -124,9 +148,15 @@ class CreateAdPage {
         }
     }
 
-    removeImagePreview(preview, filename) {
+    removeImagePreview(preview, filePath) {
+        // Освобождаем URL превью
+        const imageData = this.uploadedImages.find(img => img.file_path === filePath);
+        if (imageData && imageData.preview_url) {
+            URL.revokeObjectURL(imageData.preview_url);
+        }
+        
         // Удаляем из массива загруженных изображений
-        this.uploadedImages = this.uploadedImages.filter(path => !path.includes(filename));
+        this.uploadedImages = this.uploadedImages.filter(img => img.file_path !== filePath);
         
         // Удаляем превью из DOM
         preview.remove();
@@ -173,8 +203,10 @@ class CreateAdPage {
             return;
         }
 
-        // Добавляем изображения
-        formData.images = this.uploadedImages;
+        // Добавляем изображения - берем только пути к файлам, убираем дубликаты
+        const imagePaths = this.uploadedImages.map(img => img.file_path).filter(path => path); // Фильтруем пустые пути
+        formData.images = [...new Set(imagePaths)]; // Убираем дубликаты
+        console.log('📸 Отправляемые изображения:', formData.images);
 
         try {
             // Блокируем кнопку отправки

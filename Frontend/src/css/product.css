@@ -44,7 +44,7 @@
     border: none;
     width: 48px;
     height: 48px;
-    border-radius: 50%;
+    border-radius: 100%;
     font-size: 28px;
     font-weight: bold;
     cursor: pointer;
@@ -85,7 +85,7 @@
 .image-indicator-dot {
     width: 8px;
     height: 8px;
-    border-radius: 50%;
+    border-radius: 100%;
     background: rgba(255, 255, 255, 0.5);
     cursor: pointer;
     transition: background 0.3s ease, transform 0.3s ease;
@@ -191,14 +191,16 @@
 
 .btn-contact,
 .btn-cart {
-    flex: 1;
-    padding: 16px 24px;
+    flex: 0.5;
+    padding: 8px 16px;
     border: none;
-    border-radius: 12px;
-    font-size: 1rem;
-    font-weight: 700;
+    border-radius: 9999px;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
+    font-size: 1rem;
+    text-decoration: none;
+    text-align: center;
 }
 
 .btn-contact {
@@ -209,7 +211,6 @@
 .btn-contact:hover {
     background: #3a0404;
     transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
 }
 
 .btn-cart {
@@ -220,7 +221,6 @@
 .btn-cart:hover {
     background: #3a0404;
     transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
 }
 
 .product-details {
@@ -406,7 +406,8 @@
 
     .btn-contact,
     .btn-cart {
-        width: 100%;
+        padding: 12px 24px;
+        font-size: 1rem;
     }
 
     .secondary-image-item {
