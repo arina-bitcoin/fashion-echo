@@ -1,111 +1,117 @@
-# Backend/tests/conftest.py
-
-import os
-import tempfile
-
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+import pytest_asyncio
+from httpx import AsyncClient, ASGITransport
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy import text
 
-from Backend.app.main import app
 from Backend.app.core.database import Base, get_db
-from Backend.app.core.security import get_password_hash, create_access_token
+from Backend.app.main import app
 from Backend.app.models.user import User
+from Backend.app.core.security import get_password_hash
+from Backend.app.core.security import create_access_token
 
 
-# ---------- БАЗА ДАННЫХ ДЛЯ ТЕСТОВ ----------
 
-@pytest.fixture(scope="session")
-def db_engine():
+# --- ТЕСТОВАЯ БД: отдельный async-движок ---
+
+TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+engine_test = create_async_engine(
+    TEST_DATABASE_URL,
+    echo=False,
+    future=True,
+)
+
+AsyncSessionLocal = async_sessionmaker(
+    bind=engine_test,
+    expire_on_commit=False,
+    class_=AsyncSession,
+)
+
+
+# --- Перед КАЖДЫМ тестом: пересоздаём схему ---
+
+@pytest_asyncio.fixture(autouse=True)
+async def prepare_db():
     """
-    Отдельная sqlite-база во временном файле для всех интеграционных тестов.
+    Полностью пересоздаём структуру БД перед каждым тестом.
+    Гарантия, что ни один пользователь `newuser@example.com`
+    не "прилетит" из прошлых тестов/сидов.
     """
-    fd, path = tempfile.mkstemp()
-    os.close(fd)
-
-    engine = create_engine(
-        f"sqlite:///{path}",
-        connect_args={"check_same_thread": False},
-    )
-
-    Base.metadata.create_all(bind=engine)
-
-    yield engine
-
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
-    os.remove(path)
+    async with engine_test.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    # можно ничего не делать на teardown, но для чистоты:
+    async with engine_test.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
 
 
-@pytest.fixture()
-def db_session(db_engine):
-    """
-    Отдельная сессия на каждый тест.
-    """
-    SessionTesting = sessionmaker(autocommit=False, autoflush=False, bind=db_engine)
-    session = SessionTesting()
-    try:
-        yield session
-    finally:
-        session.rollback()
-        session.close()
+# --- Фикстура сессии для прямой работы с БД в тестах ---
 
-
-# ---------- ПЕРЕОПРЕДЕЛЕНИЕ get_db ДЛЯ FASTAPI ----------
-
-@pytest.fixture()
-def client(db_session):
-    """
-    TestClient, у которого get_db подменён на тестовую сессию.
-    """
-
-    def _get_db_override():
+@pytest_asyncio.fixture
+async def db_session():
+    async with AsyncSessionLocal() as session:
         try:
-            yield db_session
+            yield session
         finally:
-            pass
+            await session.rollback()
+
+
+# --- Переопределяем зависимость get_db в приложении ---
+
+@pytest_asyncio.fixture
+async def client():
+    """
+    AsyncClient, у которого get_db подменён на тестовую асинхронную сессию.
+    """
+
+    async def _get_db_override():
+        async with AsyncSessionLocal() as session:
+            try:
+                yield session
+            finally:
+                await session.rollback()
 
     app.dependency_overrides[get_db] = _get_db_override
 
-    with TestClient(app) as c:
-        yield c
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
 
     app.dependency_overrides.clear()
 
 
-# ---------- ТЕСТОВЫЙ ПОЛЬЗОВАТЕЛЬ И АВТОРИЗАЦИЯ ----------
+# --- Тестовый пользователь для остальных интеграционных тестов ---
 
-@pytest.fixture()
-def test_user(db_session):
+@pytest_asyncio.fixture
+async def test_user(db_session: AsyncSession) -> User:
     """
-    get-or-create пользователя с email=test@example.com,
-    чтобы не ловить UNIQUE constraint.
+    Создаём юзера с ИМЕЙЛОМ, ОТЛИЧНЫМ от newuser@example.com.
+    Этот юзер нужен для других интеграционных тестов (users, ads и т.п.).
     """
-    user = db_session.query(User).filter_by(email="test@example.com").first()
-    if user:
-        return user
+    hashed = get_password_hash("password123")
 
     user = User(
-        email="test@example.com",
-        full_name="Test User",
-        hashed_password=get_password_hash("password123"),
+        email="test@example.com",      # ВАЖНО: НЕ newuser@example.com
+        name="Test User",
+        hashed_password=hashed,
         is_active=True,
         is_verified=True,
     )
     db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
+    await db_session.commit()
+    await db_session.refresh(user)
     return user
 
-
-@pytest.fixture()
-def auth_headers(test_user: User):
+@pytest_asyncio.fixture
+async def auth_headers(test_user: User):
     """
-    Делаем тот же токен, что и в /auth/login:
-    create_access_token(data={"sub": str(user.id), "email": user.email})
+    Возвращает заголовки Authorization для авторизованного пользователя test_user.
+    Используется в интеграционных тестах (ads, files, users).
     """
-    token = create_access_token(
+    access_token = create_access_token(
         data={"sub": str(test_user.id), "email": test_user.email}
     )
-    return {"Authorization": f"Bearer {token}"}
+    return {"Authorization": f"Bearer {access_token}"}
