@@ -37,8 +37,144 @@
 </div>
         </header>
         <div style="padding:12px 16px; display:grid; gap:14px;">
-            <div style="color:var(--primary-color); letter-spacing:0.06em;">Предложения</div>
-            <div id="offers" class="offers-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:14px;"></div>
+            <div style="color:var(--primary-color); letter-spacing:0.06em; font-weight: 900; font-size: 1.5rem;">ПРЕДЛОЖЕНИЯ</div>
+            
+            <!-- Поиск -->
+            <div class="search-card">
+                <div class="search-header">Найти товар?</div>
+                <div class="search-input-wrapper">
+                    <span class="search-icon">🔎</span>
+                    <input type="text" id="search-input" class="search-input" placeholder="Поиск по товарам...">
+                </div>
+            </div>
+
+            <!-- Кнопка для открытия фильтров -->
+            <button id="toggle-filters-btn" class="btn-filters">Фильтры ▼</button>
+
+            <!-- Модальное окно фильтров -->
+            <div id="filters-modal" class="modal">
+                <div class="modal-content">
+                    <span class="modal-close" id="modal-close-filters">&times;</span>
+                    <h2>Фильтры</h2>
+                    <div id="filters-content" class="filters-content">
+                        <div class="filters-grid">
+                            <!-- Статус -->
+                            <div class="filter-group">
+                                <label class="filter-label">Статус</label>
+                                <select id="filter-status" class="filter-select">
+                                    <option value="">Все</option>
+                                    <option value="active">Активные</option>
+                                    <option value="inactive">Неактивные</option>
+                                </select>
+                            </div>
+
+                            <!-- Тип объявления -->
+                            <div class="filter-group">
+                                <label class="filter-label">Тип</label>
+                                <select id="filter-type" class="filter-select">
+                                    <option value="">Все</option>
+                                    <option value="sell">Продажа</option>
+                                    <option value="exchange">Обмен</option>
+                                    <option value="buy_request">Покупка</option>
+                                </select>
+                            </div>
+
+                            <!-- Основные категории -->
+                            <div class="filter-group">
+                                <label class="filter-label">Категория</label>
+                                <div class="checkbox-group">
+                                    <label><input type="checkbox" value="men" class="filter-checkbox" data-filter="main_categories"> Мужское</label>
+                                    <label><input type="checkbox" value="women" class="filter-checkbox" data-filter="main_categories"> Женское</label>
+                                    <label><input type="checkbox" value="kids" class="filter-checkbox" data-filter="main_categories"> Детское</label>
+                                    <label><input type="checkbox" value="unisex" class="filter-checkbox" data-filter="main_categories"> Унисекс</label>
+                                    <label><input type="checkbox" value="baby" class="filter-checkbox" data-filter="main_categories"> Малыши</label>
+                                </div>
+                            </div>
+
+                            <!-- Подкатегории -->
+                            <div class="filter-group">
+                                <label class="filter-label">Подкатегория</label>
+                                <div class="checkbox-group">
+                                    <label><input type="checkbox" value="formal" class="filter-checkbox" data-filter="subcategories"> Официальное</label>
+                                    <label><input type="checkbox" value="casual" class="filter-checkbox" data-filter="subcategories"> Повседневное</label>
+                                    <label><input type="checkbox" value="sports" class="filter-checkbox" data-filter="subcategories"> Спортивное</label>
+                                    <label><input type="checkbox" value="outerwear" class="filter-checkbox" data-filter="subcategories"> Верхняя одежда</label>
+                                    <label><input type="checkbox" value="accessories" class="filter-checkbox" data-filter="subcategories"> Аксессуары</label>
+                                    <label><input type="checkbox" value="shoes" class="filter-checkbox" data-filter="subcategories"> Обувь</label>
+                                    <label><input type="checkbox" value="bags" class="filter-checkbox" data-filter="subcategories"> Сумки</label>
+                                    <label><input type="checkbox" value="jewelry" class="filter-checkbox" data-filter="subcategories"> Украшения</label>
+                                </div>
+                            </div>
+
+                            <!-- Сезоны -->
+                            <div class="filter-group">
+                                <label class="filter-label">Сезон</label>
+                                <div class="checkbox-group">
+                                    <label><input type="checkbox" value="winter" class="filter-checkbox" data-filter="seasons"> Зима</label>
+                                    <label><input type="checkbox" value="spring" class="filter-checkbox" data-filter="seasons"> Весна</label>
+                                    <label><input type="checkbox" value="summer" class="filter-checkbox" data-filter="seasons"> Лето</label>
+                                    <label><input type="checkbox" value="autumn" class="filter-checkbox" data-filter="seasons"> Осень</label>
+                                    <label><input type="checkbox" value="all_season" class="filter-checkbox" data-filter="seasons"> Всесезонное</label>
+                                </div>
+                            </div>
+
+                            <!-- Цена -->
+                            <div class="filter-group">
+                                <label class="filter-label">Цена</label>
+                                <div class="price-inputs">
+                                    <input type="number" id="filter-min-price" class="price-input" placeholder="От" min="0">
+                                    <span>-</span>
+                                    <input type="number" id="filter-max-price" class="price-input" placeholder="До" min="0">
+                                </div>
+                            </div>
+
+                            <!-- Состояние -->
+                            <div class="filter-group">
+                                <label class="filter-label">Состояние</label>
+                                <div class="checkbox-group">
+                                    <label><input type="checkbox" value="new" class="filter-checkbox" data-filter="condition"> Новая с биркой</label>
+                                    <label><input type="checkbox" value="like_new" class="filter-checkbox" data-filter="condition"> Как новая</label>
+                                    <label><input type="checkbox" value="excellent" class="filter-checkbox" data-filter="condition"> Отличное</label>
+                                    <label><input type="checkbox" value="good" class="filter-checkbox" data-filter="condition"> Хорошее</label>
+                                    <label><input type="checkbox" value="satisfactory" class="filter-checkbox" data-filter="condition"> Удовлетворительное</label>
+                                    <label><input type="checkbox" value="needs_repair" class="filter-checkbox" data-filter="condition"> Требует ремонта</label>
+                                </div>
+                            </div>
+
+                            <!-- Размер -->
+                            <div class="filter-group">
+                                <label class="filter-label">Размер</label>
+                                <input type="text" id="filter-size" class="filter-input" placeholder="Например: M, 42, и т.д.">
+                            </div>
+
+                            <!-- Цвет -->
+                            <div class="filter-group">
+                                <label class="filter-label">Цвет</label>
+                                <input type="text" id="filter-color" class="filter-input" placeholder="Например: красный, синий...">
+                            </div>
+
+                            <!-- Сортировка -->
+                            <div class="filter-group">
+                                <label class="filter-label">Сортировка</label>
+                                <select id="filter-sort" class="filter-select">
+                                    <option value="newest">Сначала новые</option>
+                                    <option value="oldest">Сначала старые</option>
+                                    <option value="price_asc">Сначала дешёвые</option>
+                                    <option value="price_desc">Сначала дорогие</option>
+                                    <option value="popular">Популярные</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="filters-actions">
+                            <button id="apply-filters-btn" class="btn btn-primary">Применить фильтры</button>
+                            <button id="clear-filters-btn" class="btn btn-secondary">Сбросить</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="offers" class="offers-grid"></div>
         </div>
     
 
@@ -48,7 +184,7 @@
         <div class="footer-links">
             <a href="index.html">Главная</a>
             <a href="offers.html">Предложения</a>
-            <a href="#">О нас</a>
+            <a href="about.html">О нас</a>
         </div>
     </footer>
 
@@ -56,6 +192,6 @@
     <script src="js/api-service.js"></script>    <!-- ПЕРВЫЙ -->
     <script src="js/auth-state.js"></script>     <!-- ВТОРОЙ -->
     <script src="js/auth.js"></script>
-    <script src="js/offers.js"></script>
+    <script src="js/offers.js?v=3.0"></script>
 </body>
 </html>

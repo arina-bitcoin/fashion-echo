@@ -8,17 +8,31 @@ class AdType(str, Enum):
     EXCHANGE = "exchange"
     BUY_REQUEST = "buy_request"
 
+class AdCondition(str, Enum):
+    NEW = "new"
+    LIKE_NEW = "like_new"
+    EXCELLENT = "excellent"
+    GOOD = "good"
+    SATISFACTORY = "satisfactory"
+    NEEDS_REPAIR = "needs_repair"
+
 class AdBase(BaseModel):
     type: AdType
     title: str
     description: Optional[str] = None
     price: Optional[float] = None
     condition: str
-    category: str
+    main_categories: Optional[List[str]] = []  # men, women, kids, unisex, baby
+    subcategories: Optional[List[str]] = []  # formal, casual, sports, outerwear, underwear, swimwear, accessories, shoes, bags, jewelry
+    seasons: Optional[List[str]] = []  # winter, spring, summer, autumn, all_season
     size: Optional[str] = None
     brand: Optional[str] = None
+    colors: Optional[List[str]] = []
+    category: Optional[str] = None  # Для обратной совместимости (deprecated)
 
 class AdCreate(AdBase):
+    images: Optional[List[str]] = []
+    
     @validator('price')
     def validate_price(cls, v, values):
         if values.get('type') == AdType.SELL and v is None:

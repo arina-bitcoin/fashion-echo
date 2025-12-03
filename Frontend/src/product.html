@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FASHIONECHO - Карточка товара</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/profile.css">
+    <link rel="stylesheet" href="css/product.css">
+</head>
+<body>
+    <section id="screen-product" class="screen active">
+        <header class="topbar">
+            <a class="brand" href='index.html'>FASHIONECHO</a>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="window.location.href='offers.html'">Предложения</button>
+                <button class="btn btn-secondary" onclick="window.location.href='cart.html'">Корзина</button>
+                <div id="auth-section">
+                    <button class="btn btn-primary" id="login-btn" onclick="window.location.href='login.html'">Вход/Регистрация</button>
+                    <div id="user-avatar-btn" class="user-avatar-header">
+                        <img id="header-avatar" src="" alt="Аватар">
+                    </div>
+                    <div class="user-dropdown-menu">
+                        <button class="user-menu-item" id="profile-btn">
+                            <span>📋</span> Профиль
+                        </button>
+                        <button class="user-menu-item" id="logout-btn">
+                            <span>🚪</span> Выйти
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="product-container">
+            <div class="product-images">
+                <div class="main-image-container">
+                    <img id="main-image" src="" alt="Товар" class="main-image">
+                    <button class="image-nav-btn prev-btn" id="prev-image-btn" aria-label="Предыдущее изображение">‹</button>
+                    <button class="image-nav-btn next-btn" id="next-image-btn" aria-label="Следующее изображение">›</button>
+                    <div class="image-indicator" id="image-indicator"></div>
+                </div>
+                <div class="secondary-image-container" id="secondary-image-container">
+                    <!-- Миниатюры будут добавлены через JavaScript -->
+                </div>
+            </div>
+
+            <div class="product-info">
+                <h1 class="product-title" id="product-title">Загрузка...</h1>
+                <div class="product-price" id="product-price">0 ₽</div>
+                
+                <!-- <div class="seller-info" id="seller-info">
+                    ПРОДАВЕЦ ВЫБРАЛ ОСТАВИТЬ НОМЕР ТЕЛЕФОНА ДЛЯ СВЯЗИ
+                </div> -->
+
+                <div class="product-actions">
+                    <button class="btn-contact" id="btn-contact">Контакты</button>
+                    <button class="btn-cart" id="btn-cart">В корзину</button>
+                </div>
+
+                <div class="product-details">
+                    <div class="detail-section">
+                        <h2 class="detail-title">Описание:</h2>
+                        <p class="detail-content" id="product-description">Загрузка описания...</p>
+                    </div>
+
+                    <div class="detail-section">
+                        <h2 class="detail-title">Состояние:</h2>
+                        <ul class="condition-list" id="condition-list">
+                            <li>Загрузка...</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="more-offers-section">
+            <p class="more-offers-text">НАШЛИ ВСЁ, ЧТО ИСКАЛИ? ПОСМОТРИТЕ, ЧТО ЕЩЁ МОЖЕТ ВАМ ПОНРАВИТЬСЯ.</p>
+            <button class="btn-offers" onclick="window.location.href='offers.html'">Объявления</button>
+        </div>
+
+        <footer class="footer">
+            <div class="brand">FASHIONECHO</div>
+            <div class="footer-links">
+                <a href="index.html">Главная</a>
+                <a href="offers.html">Предложения</a>
+                <a href="about.html">О нас</a>
+            </div>
+        </footer>
+    </section>
+
+    <!-- Модальное окно с контактами -->
+    <div id="contact-modal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" id="modal-close">&times;</span>
+            <h2>Контакты продавца</h2>
+            <div id="contact-info" class="contact-info">
+                <p id="seller-name"></p>
+                <p id="seller-phone"></p>
+                <p id="seller-email"></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api-service.js"></script>
+    <script src="js/auth-state.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/product.js"></script>
+</body>
+</html>
+

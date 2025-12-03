@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FASHIONECHO - Создать объявление</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/profile.css">
+    <link rel="stylesheet" href="css/create-ad.css">
+</head>
+<body>
+    <section id="screen-create-ad" class="screen active">
+        <header class="topbar">
+            <a class="brand" href='index.html'>FASHIONECHO</a>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="window.location.href='my-ads.html'">Назад</button>
+                <div id="auth-section">
+                    <button class="btn btn-primary" id="login-btn" onclick="window.location.href='login.html'">Вход/Регистрация</button>
+                    <div id="user-avatar-btn" class="user-avatar-header">
+                        <img id="header-avatar" src="" alt="Аватар">
+                    </div>
+                    <div class="user-dropdown-menu">
+                        <button class="user-menu-item" id="profile-btn">
+                            <span>📋</span> Профиль
+                        </button>
+                        <button class="user-menu-item" id="logout-btn">
+                            <span>🚪</span> Выйти
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="create-ad-container">
+            <div class="create-ad-header">
+                <h1 class="create-ad-title">СОЗДАТЬ ОБЪЯВЛЕНИЕ</h1>
+            </div>
+
+            <form id="create-ad-form" class="create-ad-form">
+                <div class="form-section">
+                    <h2 class="section-title">Основная информация</h2>
+                    
+                    <div class="form-field">
+                        <label class="form-label" for="ad-type">Тип объявления *</label>
+                        <select id="ad-type" class="input" required>
+                            <option value="">Выберите тип</option>
+                            <option value="sell">Продажа</option>
+                            <option value="exchange">Обмен</option>
+                            <option value="buy_request">Запрос на покупку</option>
+                        </select>
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label" for="ad-title">Название *</label>
+                        <input type="text" id="ad-title" class="input" placeholder="Например: Костюм черный" required>
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label" for="ad-description">Описание</label>
+                        <textarea id="ad-description" class="input textarea" rows="5" placeholder="Подробное описание товара..."></textarea>
+                    </div>
+
+                    <div class="form-field" id="price-field" style="display: none;">
+                        <label class="form-label" for="ad-price">Цена (₽) *</label>
+                        <input type="number" id="ad-price" class="input" min="0" step="0.01" placeholder="0.00">
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2 class="section-title">Характеристики</h2>
+                    
+                    <div class="form-field">
+                        <label class="form-label" for="ad-category">Категория *</label>
+                        <select id="ad-category" class="input" required>
+                            <option value="">Выберите категорию</option>
+                            <option value="clothing">Одежда</option>
+                            <option value="shoes">Обувь</option>
+                            <option value="accessories">Аксессуары</option>
+                            <option value="bags">Сумки</option>
+                            <option value="other">Другое</option>
+                        </select>
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label" for="ad-condition">Состояние *</label>
+                        <select id="ad-condition" class="input" required>
+                            <option value="">Выберите состояние</option>
+                            <option value="new">Новое</option>
+                            <option value="excellent">Отличное</option>
+                            <option value="good">Хорошее</option>
+                            <option value="satisfactory">Удовлетворительное</option>
+                        </select>
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label" for="ad-size">Размер</label>
+                        <input type="text" id="ad-size" class="input" placeholder="Например: M, 42, 38-40">
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label" for="ad-brand">Бренд</label>
+                        <input type="text" id="ad-brand" class="input" placeholder="Например: Zara, H&M">
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2 class="section-title">Изображения</h2>
+                    <div class="images-section">
+                        <div class="image-upload-area" id="image-upload-area">
+                            <input type="file" id="image-input" accept="image/*" multiple class="hidden">
+                            <div class="upload-placeholder">
+                                <span class="upload-icon">📷</span>
+                                <p>Нажмите для загрузки изображений</p>
+                                <p class="upload-hint">Можно загрузить несколько файлов</p>
+                            </div>
+                        </div>
+                        <div id="image-preview-container" class="image-preview-container"></div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="window.location.href='my-ads.html'">Отмена</button>
+                    <button type="submit" class="btn btn-primary btn-wide" id="submit-btn">СОЗДАТЬ ОБЪЯВЛЕНИЕ</button>
+                </div>
+            </form>
+        </div>
+
+        <footer class="footer">
+            <div class="brand">FASHIONECHO</div>
+            <div class="footer-links">
+                <a href="index.html">Главная</a>
+                <a href="offers.html">Предложения</a>
+                <a href="about.html">О нас</a>
+            </div>
+        </footer>
+    </section>
+
+    <script src="js/api-service.js"></script>
+    <script src="js/auth-state.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/create-ad.js"></script>
+</body>
+</html>
+

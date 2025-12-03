@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FASHIONECHO - О нас</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/profile.css">
+    <style>
+        .about-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .about-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .about-title {
+            color: var(--primary-color);
+            font-size: 2.5rem;
+            font-weight: 900;
+            margin-bottom: 10px;
+            letter-spacing: 0.05em;
+        }
+
+        .about-subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .about-section {
+            background: var(--card-color);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: var(--shadow);
+        }
+
+        .about-section h2 {
+            color: var(--primary-color);
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--secondary-color);
+        }
+
+        .about-section h3 {
+            color: var(--primary-color);
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+
+        .about-section p {
+            color: var(--text-primary);
+            font-size: 1rem;
+            line-height: 1.8;
+            margin-bottom: 15px;
+        }
+
+        .about-section ul {
+            list-style: none;
+            padding-left: 0;
+            margin: 20px 0;
+        }
+
+        .about-section ul li {
+            padding: 10px 0 10px 30px;
+            position: relative;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .about-section ul li:before {
+            content: "•";
+            position: absolute;
+            left: 10px;
+            color: var(--primary-color);
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .highlight-box {
+            background: var(--secondary-color);
+            border-left: 4px solid var(--primary-color);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .highlight-box p {
+            margin: 0;
+            font-weight: 500;
+            color: var(--primary-color);
+        }
+
+        .guide-steps {
+            counter-reset: step-counter;
+        }
+
+        .guide-steps h3 {
+            counter-increment: step-counter;
+            position: relative;
+            padding-left: 50px;
+        }
+
+        .guide-steps h3:before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: var(--primary-color);
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .info-box {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+
+        .info-box strong {
+            color: #856404;
+            display: block;
+            margin-bottom: 8px;
+            font-size: 1rem;
+        }
+
+        .info-box p {
+            color: #856404;
+            margin: 0;
+            font-size: 0.95rem;
+        }
+
+        @media (max-width: 768px) {
+            .about-container {
+                padding: 20px 15px;
+            }
+
+            .about-title {
+                font-size: 2rem;
+            }
+
+            .about-section {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <section id="screen-about" class="screen active">
+        <header class="topbar">
+            <a class="brand" href='index.html'>FASHIONECHO</a>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="window.location.href='offers.html'">Предложения</button>
+                <button class="btn btn-secondary" onclick="window.location.href='cart.html'">Корзина</button>
+                <div id="auth-section">
+                    <button class="btn btn-primary" id="login-btn" onclick="window.location.href='login.html'">Вход/Регистрация</button>
+                    <div id="user-avatar-btn" class="user-avatar-header">
+                        <img id="header-avatar" src="" alt="Аватар">
+                    </div>
+                    <div class="user-dropdown-menu">
+                        <button class="user-menu-item" id="profile-btn">
+                            <span>📋</span> Профиль
+                        </button>
+                        <button class="user-menu-item" id="logout-btn">
+                            <span>🚪</span> Выйти
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="about-container">
+            <div class="about-header">
+                <h1 class="about-title">О НАС</h1>
+                <p class="about-subtitle">Наша история и миссия</p>
+            </div>
+
+            <div class="about-section">
+                <p><strong>Привет!</strong> Мы — студенты МАИ, и мы верим, что даже маленькие проекты могут решать большие проблемы.</p>
+                
+                <p>Учась на первом курсе, мы создали Fashion Echo. Почему? Потому что мы видим, как:</p>
+                
+                <ul>
+                    <li>Страдает планета от перепроизводства одежды.</li>
+                    <li>Люди с ограниченными финансовыми возможностями не могут позволить себе приобретение качественных вещей.</li>
+                </ul>
+
+                <div class="highlight-box">
+                    <p>Наш сервис дарит вещам вторую жизнь через покупку, продажу и обмен. Для нас это не просто проект, а наш вклад в более разумное и справедливое будущее.</p>
+                </div>
+
+                <p>Мы только в начале пути, но полны энтузиазма создавать будущее, в котором нет места перепотреблению и неравенству в возможности приобретения качественных вещей. <strong>Присоединяйтесь к нам!</strong></p>
+            </div>
+
+            <div class="about-section">
+                <h2>Краткое руководство</h2>
+
+                <div class="guide-steps">
+                    <h3>Регистрация и вход</h3>
+                    <p><strong>Быстрый старт:</strong> Вы можете просматривать объявления и сайт без регистрации.</p>
+                    <p><strong>Чтобы покупать или продавать:</strong> Нажмите «Войти» и зарегистрируйтесь, указав электронную почту. Это займет минуту.</p>
+                    <p><strong>Ваш профиль:</strong> После входа вы можете заполнить информацию о себе в разделе «Профиль», чтобы другие пользователи знали, с кем имеют дело.</p>
+
+                    <h3>Поиск и покупка вещей</h3>
+                    <p><strong>Через ленту объявлений</strong></p>
+                    <p>А также вы можете воспользоваться картой секонд-хендов, представленной на главной странице сайта, что дает возможность быстро найти подходящие вам по расположению и ценовой категории вещи.</p>
+
+                    <h3>Связь с продавцом</h3>
+                    <p>Нашли свою вещь? В карточке объявления будут указаны контакты продавца.</p>
+
+                    <div class="info-box">
+                        <strong>Важно:</strong>
+                        <p>Все расчеты и доставка происходят напрямую между вами и продавцом. Будьте внимательны и доверяйте только проверенным аккаунтам.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <div class="brand">FASHIONECHO</div>
+            <div class="footer-links">
+                <a href="index.html">Главная</a>
+                <a href="offers.html">Предложения</a>
+                <a href="about.html">О нас</a>
+            </div>
+        </footer>
+    </section>
+
+    <script src="js/api-service.js"></script>
+    <script src="js/auth-state.js"></script>
+    <script src="js/auth.js"></script>
+</body>
+</html>

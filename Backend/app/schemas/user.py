@@ -70,3 +70,12 @@ class ChangePasswordRequest(BaseModel):
     
 class UserWithAvatarResponse(UserResponse):
     avatar_url: Optional[str] = None
+
+class UserPublicInfo(BaseModel):
+    """Публичная информация о пользователе для отображения контактов продавца"""
+    id: int
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True)

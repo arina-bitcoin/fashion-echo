@@ -1,0 +1,15 @@
+ВНИМАНИЕ! Если вы видите ошибку с via.placeholder.com:
+
+1. Очистите кэш браузера:
+   - Chrome/Edge: Ctrl + Shift + Delete
+   - Firefox: Ctrl + Shift + Delete
+   - Или используйте жесткую перезагрузку: Ctrl + F5
+
+2. Или откройте DevTools (F12) и:
+   - Перейдите на вкладку Network
+   - Включите "Disable cache"
+   - Обновите страницу (F5)
+
+3. Файл offers.js был обновлен и больше не использует via.placeholder.com
+   Все ссылки заменены на локальные SVG заглушки.
+

@@ -124,6 +124,7 @@
 
         .field-container .input {
             padding-right: 50px;
+            border-radius: 9999px !important; /* Делаем поля круглыми */
         }
 
         .edit-btn {
@@ -302,6 +303,16 @@
 }
 
 /* Дополнительный контейнер для лучшего центрирования если нужно */
+.profile-actions-section {
+    margin: 24px 0;
+    text-align: center;
+}
+
+.profile-actions-section .btn {
+    width: 100%;
+    max-width: 400px;
+}
+
 .delete-account-container {
     display: flex;
     justify-content: center;

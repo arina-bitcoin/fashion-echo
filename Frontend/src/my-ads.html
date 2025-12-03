@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FASHIONECHO - Мои объявления</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/profile.css">
+    <link rel="stylesheet" href="css/my-ads.css">
+</head>
+<body>
+    <section id="screen-my-ads" class="screen active">
+        <header class="topbar">
+            <a class="brand" href='index.html'>FASHIONECHO</a>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="window.location.href='offers.html'">Предложения</button>
+                <button class="btn btn-secondary" onclick="window.location.href='cart.html'">Корзина</button>
+                <div id="auth-section">
+                    <button class="btn btn-primary" id="login-btn" onclick="window.location.href='login.html'">Вход/Регистрация</button>
+                    <div id="user-avatar-btn" class="user-avatar-header">
+                        <img id="header-avatar" src="" alt="Аватар">
+                    </div>
+                    <div class="user-dropdown-menu">
+                        <button class="user-menu-item" id="profile-btn">
+                            <span>📋</span> Профиль
+                        </button>
+                        <button class="user-menu-item" id="logout-btn">
+                            <span>🚪</span> Выйти
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="my-ads-container">
+            <div class="my-ads-header">
+                <h1 class="my-ads-title">МОИ ОБЪЯВЛЕНИЯ</h1>
+                <button class="btn btn-primary" id="create-ad-btn" onclick="window.location.href='create-ad.html'">
+                    + СОЗДАТЬ ОБЪЯВЛЕНИЕ
+                </button>
+            </div>
+
+            <div id="my-ads-content" class="my-ads-content">
+                <div class="loading-offers">
+                    <div class="loading-spinner"></div>
+                    <p>Загрузка объявлений...</p>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <div class="brand">FASHIONECHO</div>
+            <div class="footer-links">
+                <a href="index.html">Главная</a>
+                <a href="offers.html">Предложения</a>
+                <a href="about.html">О нас</a>
+            </div>
+        </footer>
+    </section>
+
+    <script src="js/api-service.js"></script>
+    <script src="js/auth-state.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/my-ads.js"></script>
+</body>
+</html>
+
