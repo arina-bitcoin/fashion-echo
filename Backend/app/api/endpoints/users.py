@@ -306,7 +306,7 @@ from Backend.app.core.database import get_db
 from Backend.app.core.security import verify_password, get_password_hash
 from Backend.app.dependencies import get_current_active_user
 from Backend.app.models.user import User
-from Backend.app.schemas.user import UserResponse, UserUpdate, ChangePasswordRequest, UserWithAvatarResponse
+from Backend.app.schemas.user import UserResponse, UserUpdate, ChangePasswordRequest, UserWithAvatarResponse, UserPublicInfo
 from Backend.app.services.file_service import file_service
 from Backend.app.schemas.ad import AdResponse
 from Backend.app.models.ad import Ad
@@ -490,6 +490,27 @@ async def get_user_ads(
     result = await db.execute(stmt)
     ads = list(result.scalars().all())
     return ads
+
+
+@router.get("/{user_id}/public", response_model=UserPublicInfo)
+async def get_user_public_info(
+    user_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Получить публичную информацию о пользователе (имя, телефон, email)"""
+    stmt = select(User).filter(User.id == user_id)
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return UserPublicInfo(
+        id=user.id,
+        name=user.name,
+        phone=user.phone,
+        email=user.email
+    )
 
 
 @router.post("/change-password")

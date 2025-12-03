@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FASHIONECHO - Карточка товара</title>
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/profile.css">
     <link rel="stylesheet" href="css/product.css">
 </head>
 <body>
@@ -35,9 +36,12 @@
             <div class="product-images">
                 <div class="main-image-container">
                     <img id="main-image" src="" alt="Товар" class="main-image">
+                    <button class="image-nav-btn prev-btn" id="prev-image-btn" aria-label="Предыдущее изображение">‹</button>
+                    <button class="image-nav-btn next-btn" id="next-image-btn" aria-label="Следующее изображение">›</button>
+                    <div class="image-indicator" id="image-indicator"></div>
                 </div>
-                <div class="secondary-image-container">
-                    <img id="secondary-image" src="" alt="Товар" class="secondary-image">
+                <div class="secondary-image-container" id="secondary-image-container">
+                    <!-- Миниатюры будут добавлены через JavaScript -->
                 </div>
             </div>
 

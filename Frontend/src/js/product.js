@@ -4,9 +4,16 @@ class ProductPage {
         this.adData = null;
         this.sellerData = null;
         
+        this.currentImageIndex = 0;
+        this.images = [];
+        
         this.elements = {
             mainImage: document.getElementById('main-image'),
-            secondaryImage: document.getElementById('secondary-image'),
+            mainImageContainer: document.querySelector('.main-image-container'),
+            secondaryImageContainer: document.getElementById('secondary-image-container'),
+            prevBtn: document.getElementById('prev-image-btn'),
+            nextBtn: document.getElementById('next-image-btn'),
+            imageIndicator: document.getElementById('image-indicator'),
             productTitle: document.getElementById('product-title'),
             productPrice: document.getElementById('product-price'),
             productDescription: document.getElementById('product-description'),
@@ -56,6 +63,40 @@ class ProductPage {
             this.elements.contactModal.addEventListener('click', (e) => {
                 if (e.target === this.elements.contactModal) {
                     this.hideContacts();
+                }
+            });
+        }
+
+        // Навигация по изображениям
+        if (this.elements.prevBtn) {
+            this.elements.prevBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.showPreviousImage();
+            });
+        }
+
+        if (this.elements.nextBtn) {
+            this.elements.nextBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.showNextImage();
+            });
+        }
+
+        // Навигация клавиатурой
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') {
+                this.showPreviousImage();
+            } else if (e.key === 'ArrowRight') {
+                this.showNextImage();
+            }
+        });
+
+        // Переключение по клику на главное изображение
+        if (this.elements.mainImageContainer) {
+            this.elements.mainImageContainer.addEventListener('click', (e) => {
+                // Если клик не по кнопке навигации, переключаем изображение
+                if (!e.target.closest('.image-nav-btn')) {
+                    this.showNextImage();
                 }
             });
         }
@@ -121,9 +162,24 @@ class ProductPage {
         const images = this.adData.images || [];
         const baseUrl = 'http://localhost:8000/static/';
 
-        // Главное изображение
-        if (this.elements.mainImage && images.length > 0) {
-            const imageUrl = this.normalizeImageUrl(images[0], baseUrl);
+        // Сохраняем список изображений для навигации
+        if (images.length > 0) {
+            this.images = images.map(img => this.normalizeImageUrl(img, baseUrl));
+        } else {
+            this.images = [this.getPlaceholderImage()];
+        }
+
+        // Устанавливаем начальное изображение
+        this.currentImageIndex = 0;
+        this.updateMainImage();
+
+        // Создаем миниатюры
+        this.createThumbnails();
+    }
+
+    updateMainImage() {
+        if (this.elements.mainImage && this.images.length > 0) {
+            const imageUrl = this.images[this.currentImageIndex];
             this.elements.mainImage.src = imageUrl;
             this.elements.mainImage.alt = this.adData.title || 'Товар';
             this.elements.mainImage.onerror = () => {
@@ -133,24 +189,121 @@ class ProductPage {
             this.elements.mainImage.src = this.getPlaceholderImage();
         }
 
-        // Второе изображение
-        if (this.elements.secondaryImage) {
-            if (images.length > 1) {
-                const imageUrl = this.normalizeImageUrl(images[1], baseUrl);
-                this.elements.secondaryImage.src = imageUrl;
-                this.elements.secondaryImage.alt = this.adData.title || 'Товар';
-                this.elements.secondaryImage.onerror = () => {
-                    this.elements.secondaryImage.style.display = 'none';
-                };
-            } else if (images.length === 1) {
-                // Если только одно изображение, используем его и для второго места
-                const imageUrl = this.normalizeImageUrl(images[0], baseUrl);
-                this.elements.secondaryImage.src = imageUrl;
-                this.elements.secondaryImage.alt = this.adData.title || 'Товар';
+        // Показываем/скрываем кнопки навигации
+        this.updateNavigationButtons();
+
+        // Обновляем индикатор
+        this.updateImageIndicator();
+
+        // Обновляем активную миниатюру
+        this.updateActiveThumbnail();
+    }
+
+    updateNavigationButtons() {
+        // Показываем кнопки только если изображений больше одного
+        const showButtons = this.images.length > 1;
+        if (this.elements.prevBtn) {
+            if (showButtons) {
+                this.elements.prevBtn.style.display = 'flex';
             } else {
-                this.elements.secondaryImage.style.display = 'none';
+                this.elements.prevBtn.style.display = 'none';
             }
         }
+        if (this.elements.nextBtn) {
+            if (showButtons) {
+                this.elements.nextBtn.style.display = 'flex';
+            } else {
+                this.elements.nextBtn.style.display = 'none';
+            }
+        }
+    }
+
+    createThumbnails() {
+        if (!this.elements.secondaryImageContainer) return;
+
+        // Очищаем контейнер
+        this.elements.secondaryImageContainer.innerHTML = '';
+
+        // Создаем миниатюры для всех изображений
+        this.images.forEach((imageUrl, index) => {
+            const thumbnailItem = document.createElement('div');
+            thumbnailItem.className = `secondary-image-item ${index === 0 ? 'active' : ''}`;
+            thumbnailItem.setAttribute('data-index', index);
+            
+            const thumbnailImg = document.createElement('img');
+            thumbnailImg.src = imageUrl;
+            thumbnailImg.alt = `${this.adData.title || 'Товар'} - фото ${index + 1}`;
+            thumbnailImg.className = 'secondary-image';
+            thumbnailImg.onerror = () => {
+                thumbnailImg.src = this.getPlaceholderImage();
+            };
+
+            thumbnailItem.appendChild(thumbnailImg);
+            
+            // Обработчик клика на миниатюру
+            thumbnailItem.addEventListener('click', () => {
+                this.currentImageIndex = index;
+                this.updateMainImage();
+            });
+
+            this.elements.secondaryImageContainer.appendChild(thumbnailItem);
+        });
+
+        // Если изображений нет, скрываем контейнер миниатюр
+        if (this.images.length === 0) {
+            this.elements.secondaryImageContainer.style.display = 'none';
+        }
+    }
+
+    updateActiveThumbnail() {
+        if (!this.elements.secondaryImageContainer) return;
+
+        const thumbnails = this.elements.secondaryImageContainer.querySelectorAll('.secondary-image-item');
+        thumbnails.forEach((thumbnail, index) => {
+            if (index === this.currentImageIndex) {
+                thumbnail.classList.add('active');
+            } else {
+                thumbnail.classList.remove('active');
+            }
+        });
+    }
+
+    updateImageIndicator() {
+        if (!this.elements.imageIndicator || this.images.length <= 1) {
+            if (this.elements.imageIndicator) {
+                this.elements.imageIndicator.innerHTML = '';
+            }
+            return;
+        }
+
+        // Очищаем индикатор
+        this.elements.imageIndicator.innerHTML = '';
+
+        // Создаем точки для каждого изображения
+        this.images.forEach((_, index) => {
+            const dot = document.createElement('div');
+            dot.className = `image-indicator-dot ${index === this.currentImageIndex ? 'active' : ''}`;
+            dot.setAttribute('data-index', index);
+            
+            dot.addEventListener('click', () => {
+                this.currentImageIndex = index;
+                this.updateMainImage();
+            });
+
+            this.elements.imageIndicator.appendChild(dot);
+        });
+    }
+
+    showNextImage() {
+        if (this.images.length === 0) return;
+        this.currentImageIndex = (this.currentImageIndex + 1) % this.images.length;
+        this.updateMainImage();
+    }
+
+    showPreviousImage() {
+        if (this.images.length === 0) return;
+        this.currentImageIndex = (this.currentImageIndex - 1 + this.images.length) % this.images.length;
+        this.updateMainImage();
     }
 
     normalizeImageUrl(imagePath, baseUrl) {
@@ -229,25 +382,57 @@ class ProductPage {
     }
 
     async showContacts() {
-        if (!this.elements.contactModal) return;
+        if (!this.elements.contactModal || !this.adData) return;
 
         try {
-            // Пока просто показываем модальное окно с заглушкой
-            // В будущем здесь будет загрузка данных продавца
+            // Показываем модальное окно с загрузкой
+            this.elements.contactModal.classList.add('show');
+            
+            // Устанавливаем заглушки пока загружаются данные
             if (this.elements.sellerName) {
-                this.elements.sellerName.textContent = 'Имя: Не указано';
+                this.elements.sellerName.textContent = 'Загрузка...';
             }
             if (this.elements.sellerPhone) {
-                this.elements.sellerPhone.textContent = 'Телефон: Не указан';
+                this.elements.sellerPhone.textContent = 'Загрузка...';
             }
             if (this.elements.sellerEmail) {
-                this.elements.sellerEmail.textContent = 'Email: Не указан';
+                this.elements.sellerEmail.textContent = 'Загрузка...';
             }
 
-            this.elements.contactModal.classList.add('show');
+            // Загружаем данные продавца
+            console.log('📞 Загрузка контактов продавца, user_id:', this.adData.user_id);
+            const sellerInfo = await window.apiService.getUserPublicInfo(this.adData.user_id);
+            console.log('✅ Контакты продавца загружены:', sellerInfo);
+
+            // Отображаем данные продавца
+            if (this.elements.sellerName) {
+                this.elements.sellerName.textContent = sellerInfo.name 
+                    ? `Имя: ${sellerInfo.name}` 
+                    : 'Имя: Не указано';
+            }
+            if (this.elements.sellerPhone) {
+                this.elements.sellerPhone.textContent = sellerInfo.phone 
+                    ? `Телефон: ${sellerInfo.phone}` 
+                    : 'Телефон: Не указан';
+            }
+            if (this.elements.sellerEmail) {
+                this.elements.sellerEmail.textContent = sellerInfo.email 
+                    ? `Email: ${sellerInfo.email}` 
+                    : 'Email: Не указан';
+            }
         } catch (error) {
             console.error('❌ Ошибка загрузки контактов:', error);
-            this.showError('Не удалось загрузить контакты продавца');
+            
+            // Показываем ошибку в модальном окне
+            if (this.elements.sellerName) {
+                this.elements.sellerName.textContent = 'Ошибка загрузки';
+            }
+            if (this.elements.sellerPhone) {
+                this.elements.sellerPhone.textContent = 'Не удалось загрузить контакты';
+            }
+            if (this.elements.sellerEmail) {
+                this.elements.sellerEmail.textContent = '';
+            }
         }
     }
 

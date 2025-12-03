@@ -241,6 +241,11 @@ class ApiService {
         });
     }
 
+    async getUserPublicInfo(userId) {
+        console.log('👤 Getting public user info:', userId);
+        return this.request(`/users/${userId}/public`);
+    }
+
     // Token management
     setToken(token) {
         this.token = token;
