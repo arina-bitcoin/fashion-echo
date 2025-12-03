@@ -12,9 +12,11 @@ from Backend.app.schemas.secondhand import (
     SecondhandFilters,
     MapClusterResponse,
 )
+from Backend.app.core.cache import cache
 from Backend.app.services.map_service import MapService
 
 logger = logging.getLogger(__name__)
+SECONDHAND_CITY_CACHE_PREFIX = "secondhands:city:"
 
 
 class SecondhandService:
@@ -166,6 +168,8 @@ class SecondhandService:
             await db.commit()
             await db.refresh(db_secondhand)
 
+            SecondhandService.invalidate_secondhand_cache()
+
             logger.info(
                 f"Created secondhand: {db_secondhand.name} (ID: {db_secondhand.id})"
             )
@@ -203,6 +207,8 @@ class SecondhandService:
             await db.commit()
             await db.refresh(db_secondhand)
 
+            SecondhandService.invalidate_secondhand_cache()
+
             logger.info(f"Updated secondhand ID: {secondhand_id}")
             return db_secondhand
         except Exception as e:
@@ -222,6 +228,8 @@ class SecondhandService:
 
             db_secondhand.is_active = False
             await db.commit()
+
+            SecondhandService.invalidate_secondhand_cache()
 
             logger.info(f"Soft deleted secondhand ID: {secondhand_id}")
             return True
@@ -332,3 +340,40 @@ class SecondhandService:
             )
 
         return result
+
+    async def get_secondhands_by_city_cached(
+            self,
+            db: AsyncSession,
+            city: str,
+    ) -> list[Secondhand]:
+        """
+        Часто используемый кейс: активные секонды в городе.
+        Если в кэше есть — берём из кэша, иначе — из БД и кладём в кэш.
+        """
+
+        cache_key = f"{SECONDHAND_CITY_CACHE_PREFIX}{city}"
+
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        result = await db.execute(
+            select(Secondhand).where(
+                and_(
+                    Secondhand.city == city,
+                    Secondhand.is_active.is_(True),
+                )
+            )
+        )
+        secondhands: list[Secondhand] = result.scalars().all()
+
+        cache.set(cache_key, secondhands)
+        return secondhands
+
+    @staticmethod
+    def invalidate_secondhand_cache() -> None:
+        """
+        Вызываем после create/update/delete,
+        чтобы кэш не содержал устаревших данных.
+        """
+        cache.clear_prefix(SECONDHAND_CITY_CACHE_PREFIX)

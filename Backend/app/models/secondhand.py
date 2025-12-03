@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, Text, JSON, DateTime
+from sqlalchemy import Column, Integer, String, Float, Boolean, Text, JSON, DateTime, Index
 from sqlalchemy.sql import func
 from Backend.app.core.database import Base
 
@@ -22,5 +22,11 @@ class Secondhand(Base):
     opening_hours = Column(JSON)  # {"mon": "10:00-20:00", ...}
     is_active = Column(Boolean, default=True)
 
-    # добавляем created_at под схему SecondhandResponse
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        # по координатам
+        Index("idx_secondhand_location", "latitude", "longitude"),
+        # активные секонды в городе
+        Index("idx_secondhand_city_active", "city", "is_active"),
+    )

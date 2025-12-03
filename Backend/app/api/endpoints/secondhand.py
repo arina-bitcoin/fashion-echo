@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from Backend.app.core.database import get_db
 from Backend.app.models.secondhand import Secondhand
@@ -15,8 +18,12 @@ from Backend.app.schemas.secondhand import (
     MapClusterResponse
 )
 from Backend.app.services.secondhand_service import SecondhandService
+from Backend.app.services.map_service import MapService
+from Backend.app.config import settings
+from Backend.app.models.secondhand import Secondhand
 
 router = APIRouter()
+map_service = MapService()
 secondhand_service = SecondhandService()
 
 @router.get("/", response_model=SecondhandSearchResponse)
@@ -147,30 +154,27 @@ async def delete_secondhand(
 # мое дополнение
 @router.get("/map/clusters", response_model=List[MapClusterResponse])
 async def get_map_clusters(
-    zoom: int = Query(..., ge=0, le=20, description="Текущий zoom карты"),
-    bounds: MapBoundsFilters = Depends(),
-    db: Session = Depends(get_db)
+    ne_lat: float = Query(...),
+    ne_lng: float = Query(...),
+    sw_lat: float = Query(...),
+    sw_lng: float = Query(...),
+    zoom: int = Query(13, ge=1, le=20, description="Текущий zoom карты"),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Кластеры секондхендов для карты на основании zoom + границ видимой области.
+    Кластеры секондхендов для карты.
+
+    Параметры приходят с фронта как query:
+    ?ne_lat=&ne_lng=&sw_lat=&sw_lng=&zoom=
     """
-    clusters = await secondhand_service.get_clusters_in_bounds(
-        db=db,
-        zoom=zoom,
-        ne_lat=bounds.ne_lat,
-        ne_lng=bounds.ne_lng,
-        sw_lat=bounds.sw_lat,
-        sw_lng=bounds.sw_lng,
-    )
-    return clusters
+    bounds = {
+        "ne_lat": ne_lat,
+        "ne_lng": ne_lng,
+        "sw_lat": sw_lat,
+        "sw_lng": sw_lng,
+    }
 
-
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from Backend.app.config import settings
-from Backend.app.models.secondhand import Secondhand
-
-# ...
+    return await map_service.get_map_clusters_optimized(db, bounds, zoom)
 
 @router.get("/debug/db")
 async def debug_db():
@@ -227,6 +231,24 @@ async def search_secondhands_by_radius(
         )
         for s in secondhands
     ]
+
+@router.get("/map/points", response_model=List[MapPointResponse])
+async def get_map_points(
+    ne_lat: float,
+    ne_lng: float,
+    sw_lat: float,
+    sw_lng: float,
+    db: AsyncSession = Depends(get_db),
+):
+    bounds = {
+        "ne_lat": ne_lat,
+        "ne_lng": ne_lng,
+        "sw_lat": sw_lat,
+        "sw_lng": sw_lng,
+    }
+    map_service = MapService()
+    return await map_service.get_detailed_points(db, bounds)
+
 
 # временно
 from Backend.app.core.exceptions import ValidationException
