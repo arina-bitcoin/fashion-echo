@@ -127,6 +127,8 @@ async def get_db():
         finally:
             await session.close()
 
+async_session_maker = AsyncSessionLocal
+
 async def create_db_and_tables():
     """Создание всех таблиц в базе данных"""
     async with engine.begin() as conn:

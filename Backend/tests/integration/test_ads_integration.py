@@ -1,18 +1,18 @@
-# Backend/tests/integration/test_ads_integration.py
-
 import io
+import pytest
 
 
 class TestAdsIntegration:
-    def test_upload_image_authenticated(self, client, auth_headers):
+    @pytest.mark.asyncio
+    async def test_upload_image_authenticated(self, client, auth_headers):
         """
         Авторизованный пользователь может загрузить картинку.
         """
         test_image = ("test.jpg", io.BytesIO(b"fake image data"), "image/jpeg")
 
-        resp = client.post(
+        resp = await client.post(
             "/api/ads/upload-image",
-            files={"file": test_image},  # если в эндпоинте параметр называется иначе – поменяй ключ
+            files={"file": test_image},
             headers=auth_headers,
         )
 
@@ -20,14 +20,15 @@ class TestAdsIntegration:
         data = resp.json()
         assert "file_path" in data
 
-    def test_upload_image_unauthenticated(self, client):
+    @pytest.mark.asyncio
+    async def test_upload_image_unauthenticated(self, client):
         """
         Без токена загрузка должна быть запрещена.
         Сейчас сервер даёт 422 (валидация) – это тоже ок.
         """
         test_image = ("test.jpg", io.BytesIO(b"fake image data"), "image/jpeg")
 
-        resp = client.post(
+        resp = await client.post(
             "/api/ads/upload-image",
             files={"file": test_image},
         )

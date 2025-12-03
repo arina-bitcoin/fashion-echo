@@ -1,8 +1,13 @@
+import pytest
+from sqlalchemy import select
+
 from Backend.app.models.user import User
 
-def test_register_and_login_user(client, db_session):
+
+@pytest.mark.asyncio
+async def test_register_and_login_user(client, db_session):
     # 1. регистрация
-    resp = client.post(
+    resp = await client.post(
         "/api/auth/register",
         json={
             "email": "newuser@example.com",
@@ -15,9 +20,9 @@ def test_register_and_login_user(client, db_session):
     assert data["email"] == "newuser@example.com"
 
     # 2. логин
-    login_resp = client.post(
+    login_resp = await client.post(
         "/api/auth/login",
-        params={  # у тебя login(email: str, password: str) → это query-параметры
+        params={
             "email": "newuser@example.com",
             "password": "password123",
         },
@@ -27,5 +32,8 @@ def test_register_and_login_user(client, db_session):
     assert "access_token" in tokens
 
     # 3. проверяем, что юзер действительно в БД
-    user_in_db = db_session.query(User).filter_by(email="newuser@example.com").first()
+    result = await db_session.execute(
+        select(User).where(User.email == "newuser@example.com")
+    )
+    user_in_db = result.scalar_one_or_none()
     assert user_in_db is not None

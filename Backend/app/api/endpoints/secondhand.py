@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from Backend.app.core.database import get_db
 from Backend.app.models.secondhand import Secondhand
@@ -15,8 +18,12 @@ from Backend.app.schemas.secondhand import (
     MapClusterResponse
 )
 from Backend.app.services.secondhand_service import SecondhandService
+from Backend.app.services.map_service import MapService
+from Backend.app.config import settings
+from Backend.app.models.secondhand import Secondhand
 
 router = APIRouter()
+map_service = MapService()
 secondhand_service = SecondhandService()
 
 @router.get("/", response_model=SecondhandSearchResponse)
@@ -37,7 +44,7 @@ async def get_secondhands(
         is_active=is_active
     )
     
-    items, total = secondhand_service.get_secondhands(db, filters, skip, limit)
+    items, total = await secondhand_service.get_secondhands(db, filters, skip, limit)
 
     item_models = [
         SecondhandResponse.model_validate(obj, from_attributes=True)
@@ -61,7 +68,7 @@ async def get_secondhands_for_map(
     Получить секондхенды для отображения на карте (простые точки).
     Возвращаем сразу Pydantic-модели, без ORM-магии.
     """
-    secondhands = secondhand_service.get_secondhands_in_bounds(
+    secondhands = await secondhand_service.get_secondhands_in_bounds(
         db,
         bounds.ne_lat,
         bounds.ne_lng,
@@ -99,7 +106,7 @@ async def create_secondhand(
     """
     Создать новый секондхенд (для админов)
     """
-    return secondhand_service.create_secondhand(db, secondhand_data)
+    return await secondhand_service.create_secondhand(db, secondhand_data)
 
 
 @router.get("/{secondhand_id}", response_model=SecondhandResponse)
@@ -110,7 +117,7 @@ async def get_secondhand(
     """
     Получить детальную информацию о секондхенде
     """
-    secondhand = secondhand_service.get_secondhand_by_id(db, secondhand_id)
+    secondhand = await secondhand_service.get_secondhand_by_id(db, secondhand_id)
     if not secondhand:
         raise HTTPException(status_code=404, detail="Secondhand not found")
     return secondhand
@@ -125,7 +132,7 @@ async def update_secondhand(
     """
     Обновить информацию о секондхенде (для админов)
     """
-    updated = secondhand_service.update_secondhand(db, secondhand_id, secondhand_data)
+    updated = await secondhand_service.update_secondhand(db, secondhand_id, secondhand_data)
     if not updated:
         raise HTTPException(status_code=404, detail="Secondhand not found")
     return updated
@@ -139,7 +146,7 @@ async def delete_secondhand(
     """
     Удалить секондхенд (мягкое удаление)
     """
-    success = secondhand_service.delete_secondhand(db, secondhand_id)
+    success = await secondhand_service.delete_secondhand(db, secondhand_id)
     if not success:
         raise HTTPException(status_code=404, detail="Secondhand not found")
     return {"message": "Secondhand deleted successfully"}
@@ -147,30 +154,27 @@ async def delete_secondhand(
 # мое дополнение
 @router.get("/map/clusters", response_model=List[MapClusterResponse])
 async def get_map_clusters(
-    zoom: int = Query(..., ge=0, le=20, description="Текущий zoom карты"),
-    bounds: MapBoundsFilters = Depends(),
-    db: Session = Depends(get_db)
+    ne_lat: float = Query(...),
+    ne_lng: float = Query(...),
+    sw_lat: float = Query(...),
+    sw_lng: float = Query(...),
+    zoom: int = Query(13, ge=1, le=20, description="Текущий zoom карты"),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Кластеры секондхендов для карты на основании zoom + границ видимой области.
+    Кластеры секондхендов для карты.
+
+    Параметры приходят с фронта как query:
+    ?ne_lat=&ne_lng=&sw_lat=&sw_lng=&zoom=
     """
-    clusters = secondhand_service.get_clusters_in_bounds(
-        db=db,
-        zoom=zoom,
-        ne_lat=bounds.ne_lat,
-        ne_lng=bounds.ne_lng,
-        sw_lat=bounds.sw_lat,
-        sw_lng=bounds.sw_lng,
-    )
-    return clusters
+    bounds = {
+        "ne_lat": ne_lat,
+        "ne_lng": ne_lng,
+        "sw_lat": sw_lat,
+        "sw_lng": sw_lng,
+    }
 
-
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from Backend.app.config import settings
-from Backend.app.models.secondhand import Secondhand
-
-# ...
+    return await map_service.get_map_clusters_optimized(db, bounds, zoom)
 
 @router.get("/debug/db")
 async def debug_db():
@@ -213,7 +217,7 @@ async def search_secondhands_by_radius(
     Поиск секондхендов в радиусе от точки.
     Возвращаем упрощённый список точек для карты.
     """
-    secondhands = secondhand_service.search_nearby(db, lat=lat, lng=lng, radius_km=radius_km)
+    secondhands = await secondhand_service.search_nearby(db, lat=lat, lng=lng, radius_km=radius_km)
     # Можно либо вернуть ORM-объекты (они сконвертятся в MapPointResponse),
     # либо явно собрать список словарей.
     return [
@@ -227,6 +231,24 @@ async def search_secondhands_by_radius(
         )
         for s in secondhands
     ]
+
+@router.get("/map/points", response_model=List[MapPointResponse])
+async def get_map_points(
+    ne_lat: float,
+    ne_lng: float,
+    sw_lat: float,
+    sw_lng: float,
+    db: AsyncSession = Depends(get_db),
+):
+    bounds = {
+        "ne_lat": ne_lat,
+        "ne_lng": ne_lng,
+        "sw_lat": sw_lat,
+        "sw_lng": sw_lng,
+    }
+    map_service = MapService()
+    return await map_service.get_detailed_points(db, bounds)
+
 
 # временно
 from Backend.app.core.exceptions import ValidationException
