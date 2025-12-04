@@ -292,7 +292,19 @@ class ApiService {
     }
 
     isAuthenticated() {
-        return !!this.token;
+    return !!this.token;
+    }
+
+    // 🔍 Поиск секонд-хендов
+    async searchSecondhand(params = {}) {
+        const query = new URLSearchParams(params).toString();
+        const endpoint = query ? `/secondhand/?${query}` : '/secondhand/';
+
+        console.log('🔍 searchSecondhand endpoint:', endpoint);
+
+        return this.request(endpoint, {
+            method: 'GET'
+        });
     }
 }
 

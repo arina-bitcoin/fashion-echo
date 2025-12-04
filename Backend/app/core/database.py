@@ -94,19 +94,6 @@ engine = create_async_engine(
     echo=settings.DEBUG  # Логирование SQL запросов только в режиме отладки
 )
 
-"""Синхронная сессия -- не подходит"""
-# # Берём URL из настроек и приводим его к sync-формату
-# db_url = settings.DATABASE_URL
-# if db_url.startswith("sqlite+aiosqlite"):
-#     db_url = db_url.replace("sqlite+aiosqlite", "sqlite", 1)
-
-# # Обычный синхронный engine
-# engine = create_engine(
-#     db_url,
-#     connect_args={"check_same_thread": False},  # для SQLite
-#     echo=True,  # можно выключить в проде
-# )
-""""""
 
 # Базовый класс моделей
 class Base(DeclarativeBase):

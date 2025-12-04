@@ -6,52 +6,67 @@
     <title>FASHIONECHO - Карта</title>
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/profile.css">
-    
-</style>
-    </style>
 </head>
 <body>
     <section id="screen-map" class="screen active">
         <header class="topbar">
-            <a class="brand" href='index.html'>FASHIONECHO</a>
+            <a class="brand" href="index.html">FASHIONECHO</a>
             <div class="header-actions">
-    <button class="btn btn-secondary" onclick="window.location.href='offers.html'">Предложения</button>
-    <button class="btn btn-secondary" onclick="window.location.href='cart.html'">Корзина</button>
-    <div id="auth-section">
-        <!-- Кнопка входа -->
-        <button class="btn btn-primary" id="login-btn" onclick="window.location.href='login.html'">Вход/Регистрация</button>
-        
-        <!-- Аватар пользователя -->
-        <div id="user-avatar-btn" class="user-avatar-header">
-            <img id="header-avatar" src="" alt="Аватар">
-        </div>
-        
-        <!-- Выпадающее меню ВНЕ аватара -->
-        <div class="user-dropdown-menu">
-            <button class="user-menu-item" id="profile-btn">
-                <span>📋</span> Профиль
-            </button>
-            <button class="user-menu-item" id="logout-btn">
-                <span>🚪</span> Выйти
-            </button>
-        </div>
-    </div>
-</div>
+                <button class="btn btn-secondary" onclick="window.location.href='offers.html'">Предложения</button>
+                <button class="btn btn-secondary" onclick="window.location.href='cart.html'">Корзина</button>
+
+                <div id="auth-section">
+                    <!-- Кнопка входа -->
+                    <button class="btn btn-primary" id="login-btn" onclick="window.location.href='login.html'">
+                        Вход/Регистрация
+                    </button>
+
+                    <!-- Аватар пользователя -->
+                    <div id="user-avatar-btn" class="user-avatar-header">
+                        <img id="header-avatar" src="" alt="Аватар">
+                    </div>
+
+                    <!-- Выпадающее меню -->
+                    <div class="user-dropdown-menu">
+                        <button class="user-menu-item" id="profile-btn">
+                            <span>📋</span> Профиль
+                        </button>
+                        <button class="user-menu-item" id="logout-btn">
+                            <span>🚪</span> Выйти
+                        </button>
+                    </div>
+                </div>
+            </div>
         </header>
-        
+
         <div style="padding:12px 16px; display:grid; gap:12px;">
+            <!-- Блок поиска -->
             <div class="card" style="padding:14px; background: var(--card-color); border-radius:16px; box-shadow: var(--shadow);">
                 <div style="font-weight:700; color:var(--primary-color); margin-bottom:8px;">Прогуляемся?</div>
                 <div style="display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:9999px; background:var(--secondary-color);">
                     <span>🔎</span>
-                    <input id="shop-search" style="flex:1; border:0; background:transparent; outline:none; padding:6px;" placeholder="Найди ближайшие магазины"/>
+                    <input
+                        id="shop-search"
+                        style="flex:1; border:0; background:transparent; outline:none; padding:6px;"
+                        placeholder="Найди ближайшие магазины"
+                    />
                 </div>
+
+                <!-- Сюда будем выводить результаты поиска -->
+                <div id="shop-results" style="margin-top:10px; display:flex; flex-direction:column; gap:6px;"></div>
             </div>
+
+            <!-- Карта (пока просто iframe) -->
             <div class="card" style="background: var(--card-color); border-radius:16px; box-shadow: var(--shadow); height:360px; overflow:hidden;">
-                <iframe title="map" src="https://www.openstreetmap.org/export/embed.html?bbox=37.60%2C55.72%2C37.74%2C55.78&layer=mapnik" style="border:0; width:100%; height:100%;"></iframe>
+                <iframe
+                    title="map"
+                    src="https://www.openstreetmap.org/export/embed.html?bbox=37.60%2C55.72%2C37.74%2C55.78&layer=mapnik"
+                    style="border:0; width:100%; height:100%;"
+                ></iframe>
             </div>
         </div>
     </section>
+
     <!-- Footer -->
     <footer class="footer">
         <div class="brand">FASHIONECHO</div>
@@ -61,9 +76,90 @@
             <a href="about.html">О нас</a>
         </div>
     </footer>
-    <script src="js/api-service.js"></script>    <!-- ПЕРВЫЙ -->
-    <script src="js/auth-state.js"></script>     <!-- ВТОРОЙ -->
+
+    <!-- Скрипты -->
+    <script src="js/api-service.js"></script>
+    <script src="js/auth-state.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/debug-auth.js"></script>
+
+    <!-- Логика поиска секондов -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const input = document.getElementById('shop-search');
+            const resultsContainer = document.getElementById('shop-results');
+
+            if (!window.apiService) {
+                console.error('ApiService не найден на window');
+                return;
+            }
+
+            function renderResults(data) {
+                resultsContainer.innerHTML = '';
+
+                if (!data || !data.items || data.items.length === 0) {
+                    resultsContainer.innerHTML = '<div style="font-size: 14px; color: var(--muted-color);">Ничего не найдено</div>';
+                    return;
+                }
+
+                data.items.forEach(shop => {
+                    const div = document.createElement('div');
+                    div.style.padding = '8px 10px';
+                    div.style.borderRadius = '10px';
+                    div.style.background = 'var(--secondary-color)';
+
+                    const name = shop.name || 'Без названия';
+                    const address = shop.address || shop.full_address || '';
+                    const city = shop.city || '';
+                    const desc = address || city ? `${address}${city ? ', ' + city : ''}` : '';
+
+                    div.innerHTML = `
+                        <div style="font-weight:600; font-size:14px;">${name}</div>
+                        ${desc ? `<div style="font-size:13px; opacity:0.8;">${desc}</div>` : ''}
+                    `;
+
+                    resultsContainer.appendChild(div);
+                });
+            }
+
+            async function performSearch(query) {
+                if (!query) {
+                    resultsContainer.innerHTML = '';
+                    return;
+                }
+
+                resultsContainer.innerHTML = '<div style="font-size: 14px; color: var(--muted-color);">Ищем...</div>';
+
+                try {
+                    // отправляем параметр search в /api/secondhand/
+                    const data = await window.apiService.searchSecondhand({ search: query });
+                    console.log('Результаты поиска секондов:', data);
+                    renderResults(data);
+                } catch (err) {
+                    console.error('Ошибка поиска секондов', err);
+                    const msg = err && err.message ? err.message : 'Неизвестная ошибка';
+                    resultsContainer.innerHTML =
+                        `<div style="font-size: 14px; color: var(--error-color, #b00020);">
+                            Ошибка при поиске: ${msg}
+                         </div>`;
+                }
+            }
+
+            // Поиск по Enter
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const query = input.value.trim();
+                    performSearch(query);
+                }
+            });
+
+            // Можно добавить живой поиск по вводу (опционально):
+            // input.addEventListener('input', (e) => {
+            //     const query = e.target.value.trim();
+            //     if (query.length >= 3) performSearch(query);
+            // });
+        });
+    </script>
 </body>
 </html>

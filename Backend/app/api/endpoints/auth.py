@@ -33,7 +33,7 @@ from Backend.app.schemas.user import UserCreate, UserResponse, UserWithAvatarRes
 from Backend.app.dependencies import get_current_user
 from Backend.app.services.file_service import file_service
 
-router = APIRouter(prefix="/api/auth", tags=["auth"])
+router = APIRouter(tags=["auth"])
 
 
 @router.post("/register", response_model=UserResponse)
