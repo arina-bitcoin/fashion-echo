@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, JSON
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 from Backend.app.core.database import Base
 
 class User(Base):
@@ -20,6 +21,9 @@ class User(Base):
     settings = Column(JSON)  # {'notifications': True, 'theme': 'light'}
     last_login = Column(DateTime, nullable=True)
 
+    ads = relationship("Ad", back_populates="user")
+    favorite_ads = relationship("FavoriteAd", back_populates="user")
+    
 # from sqlalchemy import Boolean, String
 # from sqlalchemy.orm import Mapped, mapped_column
 # from app.database import Base, int_pk, email_type, str_null_true, created_at, updated_at

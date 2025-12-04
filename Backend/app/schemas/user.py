@@ -15,6 +15,8 @@ class UserSettings(BaseModel):
     language: str = "ru"               # язык интерфейса
     email_notifications: bool = True   # слать ли уведомления на email
 
+    model_config = ConfigDict(from_attributes=True)
+
 
 class UserBase(BaseModel):
     """
@@ -23,6 +25,8 @@ class UserBase(BaseModel):
     email: Optional[EmailStr] = None
     name: Optional[str] = None
     phone: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 class UserCreate(BaseModel):
     """
@@ -44,6 +48,7 @@ class UserCreate(BaseModel):
             raise ValueError("Password must be at least 8 characters long")
         return v
 
+    model_config = ConfigDict(from_attributes=True)
 
 class UserUpdate(UserBase):
     """
@@ -54,6 +59,7 @@ class UserUpdate(UserBase):
     phone: Optional[str] = None
     settings: Optional[UserSettings] = None
 
+    model_config = ConfigDict(from_attributes=True)
 
 class UserResponse(UserBase):
     """
@@ -71,6 +77,8 @@ class UserResponse(UserBase):
     def full_name(self) -> Optional[str]:
         return self.name  # Или vice versa, в зависимости от того, что использует ваша БД
 
+    model_config = ConfigDict(from_attributes=True)
+
 class ChangePasswordRequest(BaseModel):
     """
     Тело запроса для смены пароля /users/change-password.
@@ -85,8 +93,12 @@ class ChangePasswordRequest(BaseModel):
             raise ValueError("New password must be at least 8 characters long")
         return v
     
+    model_config = ConfigDict(from_attributes=True)
+
 class UserWithAvatarResponse(UserResponse):
     avatar_url: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 class UserPublicInfo(BaseModel):
     """Публичная информация о пользователе для отображения контактов продавца"""

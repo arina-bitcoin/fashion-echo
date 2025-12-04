@@ -98,7 +98,7 @@ class Ad(Base):
     # Связи
     images = relationship("AdImage", back_populates="ad", cascade="all, delete-orphan")
     user = relationship("User", back_populates="ads")
-    favorited_by = relationship("User", secondary="favorite_ads", back_populates="favorites")
+    favorited_by_users = relationship("FavoriteAd", back_populates="ad")
 
 class FavoriteAd(Base):
     __tablename__ = "favorite_ads"
