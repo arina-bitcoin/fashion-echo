@@ -1,44 +1,59 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession  # Изменение: импортируем AsyncSession
+from sqlalchemy import select, func  # Изменение: используем select вместо query
 from fastapi import HTTPException, status
-from sqlalchemy import func
+
 from Backend.app.core.security import verify_password, get_password_hash
 from Backend.app.models.user import User
 from Backend.app.schemas.user import UserUpdate, ChangePasswordRequest
 from Backend.app.services.file_service import file_service
 
 class UserService:
-    def __init__(self, db: Session):
-        self.db = db
+    # Изменение: убираем __init__, делаем все методы статичными
+    @staticmethod
+    async def get_user_by_id(db: AsyncSession, user_id: int) -> User:
+        """Получение пользователя по ID"""
+        stmt = select(User).where(User.id == user_id)
+        result = await db.execute(stmt)
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            raise ValueError("User not found")
+        return user
     
-    def get_user_profile(self, user_id: int) -> User:
+    @staticmethod
+    async def get_user_profile(db: AsyncSession, user_id: int) -> User:
         """Получение профиля пользователя"""
-        return self.get_user_by_id(user_id)
+        return await UserService.get_user_by_id(db, user_id)
     
-    def update_user_profile(self, user_id: int, user_data: UserUpdate) -> User:
+    @staticmethod
+    async def update_user_profile(db: AsyncSession, user_id: int, user_data: UserUpdate) -> User:
         """Обновление профиля пользователя"""
-        user = self.get_user_by_id(user_id)
+        user = await UserService.get_user_by_id(db, user_id)
         
         # Проверяем email на уникальность если он изменяется
         if user_data.email and user_data.email != user.email:
-            existing_user = self.db.query(User).filter(User.email == user_data.email).first()
+            stmt = select(User).where(User.email == user_data.email)
+            result = await db.execute(stmt)
+            existing_user = result.scalar_one_or_none()
             if existing_user:
                 raise ValueError("Email already registered")
         
         # Обновление данных пользователя
-        update_data = user_data.dict(exclude_unset=True)
+        update_data = user_data.model_dump(exclude_unset=True)
         
         for field, value in update_data.items():
             setattr(user, field, value)
         
         user.updated_at = func.now()
-        self.db.commit()
-        self.db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
         
         return user
     
-    def change_password(self, user_id: int, password_data: ChangePasswordRequest) -> None:
+    @staticmethod
+    async def change_password(db: AsyncSession, user_id: int, password_data: ChangePasswordRequest) -> None:
         """Смена пароля пользователя"""
-        user = self.get_user_by_id(user_id)
+        user = await UserService.get_user_by_id(db, user_id)
         
         # Проверка текущего пароля
         if not verify_password(password_data.current_password, user.hashed_password):
@@ -47,11 +62,12 @@ class UserService:
         # Установка нового пароля
         user.hashed_password = get_password_hash(password_data.new_password)
         user.updated_at = func.now()
-        self.db.commit()
+        await db.commit()
     
-    async def upload_avatar(self, user_id: int, file) -> User:
+    @staticmethod
+    async def upload_avatar(db: AsyncSession, user_id: int, file) -> User:
         """Загрузка аватара пользователя"""
-        user = self.get_user_by_id(user_id)
+        user = await UserService.get_user_by_id(db, user_id)
         
         # Удаляем старый аватар если есть
         if user.avatar:
@@ -63,14 +79,15 @@ class UserService:
         # Обновляем пользователя в БД
         user.avatar = avatar_path
         user.updated_at = func.now()
-        self.db.commit()
-        self.db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
         
         return user
     
-    def delete_avatar(self, user_id: int) -> User:
+    @staticmethod
+    async def delete_avatar(db: AsyncSession, user_id: int) -> User:
         """Удаление аватара пользователя"""
-        user = self.get_user_by_id(user_id)
+        user = await UserService.get_user_by_id(db, user_id)
         
         if not user.avatar:
             raise ValueError("Avatar not found")
@@ -81,21 +98,26 @@ class UserService:
         # Обновляем пользователя в БД
         user.avatar = None
         user.updated_at = func.now()
-        self.db.commit()
-        self.db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
         
         return user
     
-    def deactivate_user(self, user_id: int) -> None:
+    @staticmethod
+    async def deactivate_user(db: AsyncSession, user_id: int) -> None:
         """Деактивация пользователя"""
-        user = self.get_user_by_id(user_id)
+        user = await UserService.get_user_by_id(db, user_id)
         user.is_active = False
         user.updated_at = func.now()
-        self.db.commit()
+        await db.commit()
     
-    def get_user_by_id(self, user_id: int) -> User:
-        """Получение пользователя по ID"""
-        user = self.db.query(User).filter(User.id == user_id).first()
+    @staticmethod
+    async def get_user_by_email(db: AsyncSession, email: str) -> User:
+        """Получение пользователя по email"""
+        stmt = select(User).where(User.email == email)
+        result = await db.execute(stmt)
+        user = result.scalar_one_or_none()
+        
         if not user:
             raise ValueError("User not found")
         return user

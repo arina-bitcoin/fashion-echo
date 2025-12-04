@@ -17,6 +17,7 @@ from Backend.app.core.database import Base
 from datetime import datetime, timezone
 from sqlalchemy import Enum as SQLEnum
 from enum import Enum as PyEnum
+from Backend.app.schemas.ad import AdStatus
 
 # Enum для статуса товара
 class Condition(str, PyEnum):
@@ -67,8 +68,7 @@ class Ad(Base):
     type = Column(String(20), nullable=False)  # sell, buy, exchange
     
     # Новые поля для фильтрации
-    is_active = Column(Boolean, default=True)
-    
+    status = Column(SQLEnum(AdStatus), default=AdStatus.ACTIVE, nullable=False)    
     # Категории
     main_category = Column(SQLEnum(MainCategory), nullable=True)
     sub_category = Column(SQLEnum(SubCategory), nullable=True)

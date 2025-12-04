@@ -29,6 +29,7 @@ from Backend.app.schemas.ad import (
     AdResponse, 
     AdCreate, 
     AdUpdate,
+    AdStatus,
     AdType,
     AdSearch,
     Condition,
@@ -48,19 +49,43 @@ router = APIRouter()
 async def get_ads(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
+    status: Optional[str] = Query(None, description="Статус объявления: active, inactive"),
     type: Optional[str] = Query(None, regex="^(sell|buy|exchange)$"),
-    category: Optional[str] = Query(None),
+    main_category: Optional[str] = Query(None, description="Основная категория"),
+    sub_category: Optional[str] = Query(None, description="Подкатегория"),
+    season: Optional[str] = Query(None, description="Сезон"),
+    condition: Optional[str] = Query(None, description="Состояние товара"),
+    min_price: Optional[float] = Query(None, ge=0, description="Минимальная цена"),
+    max_price: Optional[float] = Query(None, ge=0, description="Максимальная цена"),
+    size: Optional[str] = Query(None, description="Размер"),
+    color: Optional[str] = Query(None, description="Цвет"),
+    query: Optional[str] = Query(None, description="Текстовый поиск"),
+    sort: Optional[str] = Query("newest", description="Сортировка: newest, oldest, price_asc, price_desc, popular"),
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
-    """Получить список активных объявлений с фильтрацией"""
+    """Получить список объявлений с фильтрацией"""
+    
+    # Для неавторизованных пользователей показываем только активные
+    if not current_user:
+        status = "active"
+    
     return await AdService.get_ads(
         db=db,
         skip=skip,
         limit=limit,
         status=status,
         type=type,
-        category=category,
-        active_only=True
+        main_category=main_category,
+        sub_category=sub_category,
+        season=season,
+        condition=condition,
+        min_price=min_price,
+        max_price=max_price,
+        size=size,
+        color=color,
+        query=query,
+        sort=sort
     )
 
 
@@ -76,8 +101,8 @@ async def get_ad(
         raise HTTPException(status_code=404, detail="Объявление не найдено")
     
     # Проверяем активность
-    if not ad.is_active and (not current_user or (current_user.id != ad.user_id and not current_user.is_admin)):
-        raise HTTPException(status_code=404, detail="Объявление не найдено или неактивно")
+    if ad.status != AdStatus.ACTIVE and (not current_user or (current_user.id != ad.user_id and not current_user.is_admin)):
+        raise HTTPException(status_code=404, detail="Объявление не найдено или недоступно")
     
     # Увеличиваем счетчик просмотров
     if ad.is_active:
@@ -433,8 +458,7 @@ async def delete_ad(
 
 @router.get("/my/ads", response_model=list[AdResponse])
 async def get_my_ads(
-    active_only: Optional[bool] = Query(None, description="Только активные/неактивные"),
-    skip: int = Query(0, ge=0),
+    status: Optional[str] = Query(None, description="Статус объявления: active, inactive"),    skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -443,7 +467,7 @@ async def get_my_ads(
     return await AdService.get_user_ads(
         db=db,
         user_id=current_user.id,
-        active_only=active_only,
+        status=status,
         skip=skip,
         limit=limit
     )
@@ -456,12 +480,13 @@ async def activate_ad(
     current_user: User = Depends(get_current_user),
 ):
     """Активировать объявление"""
-    ad = await AdService.toggle_ad_status(
+    update_data = AdUpdate(status=AdStatus.ACTIVE)
+    ad = await AdService.update_ad(
         db=db,
         ad_id=ad_id,
         user_id=current_user.id,
-        is_admin=current_user.is_admin,
-        activate=True
+        ad_data=update_data,
+        is_admin=current_user.is_admin
     )
     if not ad:
         raise HTTPException(status_code=404, detail="Объявление не найдено или нет прав доступа")
@@ -475,12 +500,13 @@ async def deactivate_ad(
     current_user: User = Depends(get_current_user),
 ):
     """Деактивировать объявление"""
-    ad = await AdService.toggle_ad_status(
+    update_data = AdUpdate(status=AdStatus.INACTIVE)
+    ad = await AdService.update_ad(
         db=db,
         ad_id=ad_id,
         user_id=current_user.id,
-        is_admin=current_user.is_admin,
-        activate=False
+        ad_data=update_data,
+        is_admin=current_user.is_admin
     )
     if not ad:
         raise HTTPException(status_code=404, detail="Объявление не найдено или нет прав доступа")

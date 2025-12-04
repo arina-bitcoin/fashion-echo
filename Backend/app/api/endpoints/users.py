@@ -304,7 +304,7 @@ from sqlalchemy import select, func, update, delete
 
 from Backend.app.core.database import get_db
 from Backend.app.core.security import verify_password, get_password_hash
-from Backend.app.dependencies import get_current_active_user
+from Backend.app.dependencies import get_current_user
 from Backend.app.models.user import User
 from Backend.app.schemas.user import UserResponse, UserUpdate, ChangePasswordRequest, UserWithAvatarResponse, UserPublicInfo
 from Backend.app.services.file_service import file_service
@@ -316,7 +316,7 @@ router = APIRouter()
 @router.get("/me", response_model=UserWithAvatarResponse)
 async def get_current_user_info(
     request: Request,
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Получение данных текущего пользователя"""
     user_data = UserWithAvatarResponse.model_validate(current_user)
@@ -401,7 +401,7 @@ async def update_current_user(
     user_data: UserUpdate,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Обновление профиля пользователя"""
 
@@ -448,7 +448,7 @@ async def upload_avatar(
     request: Request,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Загрузка аватара пользователя"""
     try:
@@ -489,7 +489,7 @@ async def upload_avatar(
 async def delete_avatar(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Удаление аватара пользователя"""
     if not current_user.avatar:
@@ -524,7 +524,7 @@ async def delete_avatar(
 @router.get("/me/ads", response_model=list[AdResponse])
 async def get_user_ads(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Вернуть список объявлений текущего пользователя.
@@ -561,7 +561,7 @@ async def get_user_public_info(
 async def change_password(
     password_data: ChangePasswordRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     # Проверка текущего пароля
     if not verify_password(password_data.current_password, current_user.hashed_password):
@@ -586,7 +586,7 @@ async def change_password(
 @router.post("/me/deactivate")
 async def deactivate_account(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     stmt = (
         update(User)
@@ -602,7 +602,7 @@ async def deactivate_account(
 @router.delete("/me/delete")
 async def delete_account(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Полное удаление аккаунта пользователя"""
     user_id = current_user.id

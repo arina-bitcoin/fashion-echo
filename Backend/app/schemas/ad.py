@@ -19,36 +19,61 @@ class AdCondition(str, Enum):
 
 class AdBase(BaseModel):
     type: AdType
-    title: str
-    description: Optional[str] = None
-    price: Optional[float] = None
-    condition: str
-    main_categories: Optional[List[str]] = []  # men, women, kids, unisex, baby
-    subcategories: Optional[List[str]] = []  # formal, casual, sports, outerwear, underwear, swimwear, accessories, shoes, bags, jewelry
-    seasons: Optional[List[str]] = []  # winter, spring, summer, autumn, all_season
-    size: Optional[str] = None
-    brand: Optional[str] = None
-    colors: Optional[List[str]] = []
-    category: Optional[str] = None  # Для обратной совместимости (deprecated)
+    title: str = Field(..., min_length=1, max_length=200)
+    description: Optional[str] = Field(None, max_length=5000)
+    price: Optional[float] = Field(None, ge=0)
+    condition: Optional[str] = None
+    
+    # Категории
+    main_category: Optional[str] = Field(None, description="Основная категория")
+    sub_category: Optional[str] = Field(None, description="Подкатегория")
+    season: Optional[str] = Field(None, description="Сезон")
+    
+    # Размер и цвет
+    size: Optional[str] = Field(None, max_length=50)
+    colors: Optional[list[str]] = Field(default_factory=list)
+    
+    # Теги для поиска
+    tags: Optional[str] = Field(None, description="Ключевые слова для поиска")
+    
+    # Бренд
+    brand: Optional[str] = Field(None, max_length=100)
 
 class AdCreate(AdBase):
     @field_validator('price')
-    def validate_price(cls, v, values):
-        if values.get('type') == AdType.SELL and v is None:
-            raise ValueError('Price is required for sell ads')
+    def validate_price(cls, v: Optional[float], info: ValidationInfo) -> Optional[float]:
+        # Используем info.data.get() вместо info.get()
+        if info.data and info.data.get('type') == AdType.SELL and v is None:
+            raise ValueError('Цена обязательна для продажи')
+        if v is not None and v < 0:
+            raise ValueError('Цена не может быть отрицательной')
         return v
 
 class AdUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    price: Optional[float] = None
-    is_active: Optional[bool] = None
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    description: Optional[str] = Field(None, max_length=5000)
+    price: Optional[float] = Field(None, ge=0)
+    condition: Optional[str] = None
+    main_category: Optional[str] = None
+    sub_category: Optional[str] = None
+    season: Optional[str] = None
+    size: Optional[str] = None
+    colors: Optional[list[str]] = None
+    tags: Optional[str] = None
+    location: Optional[str] = None
+    is_negotiable: Optional[bool] = None
+    brand: Optional[str] = None
+    # === ИЗМЕНЕНИЕ: Убираем is_active, добавляем status ===
+    status: Optional[AdStatus] = None
 
 class AdResponse(AdBase):
     id: int
     user_id: int
     images: list[str] = []
-    is_active: bool
+    # === ИЗМЕНЕНИЕ: Заменяем is_active на status ===
+    status: AdStatus
+    view_count: int = 0
+    favorite_count: int = 0
     created_at: datetime
     updated_at: Optional[datetime] = None
     
@@ -69,37 +94,6 @@ class AdStatus(str, Enum):
     INACTIVE = "inactive"
     ALL = "all"
 
-# ---------- Enum для категорий одежды ----------
-# class ClothingCategory(str, Enum):
-#     """Категории одежды по полу/возрасту"""
-    
-#     # Основные категории
-#     MENS = "mens"              # Мужская одежда
-#     WOMENS = "womens"          # Женская одежда
-#     KIDS = "kids"              # Детская одежда
-#     UNISEX = "unisex"          # Унисекс
-#     BABY = "baby"              # Одежда для младенцев
-    
-#     # Подкатегории (можно комбинировать с основными)
-#     # Например: "mens,formal" или "womens,summer"
-#     FORMAL = "formal"          # Деловая/формальная
-#     CASUAL = "casual"          # Повседневная
-#     SPORTS = "sports"          # Спортивная
-#     OUTERWEAR = "outerwear"    # Верхняя одежда
-#     UNDERWEAR = "underwear"    # Нижнее белье
-#     SWIMWEAR = "swimwear"      # Купальники/плавки
-#     ACCESSORIES = "accessories" # Аксессуары
-#     SHOES = "shoes"            # Обувь
-#     BAGS = "bags"              # Сумки
-#     JEWELRY = "jewelry"        # Украшения
-    
-#     # Сезонность
-#     SUMMER = "summer"          # Летняя
-#     WINTER = "winter"          # Зимняя
-#     AUTUMN = "autumn"          # Осенняя  
-#     SPRING = "spring"          # Весенняя
-#     ALL_SEASON = "all_season"  # Всесезонная
-
 # ---------- Enum для состояний одежды ----------
 class Condition(str, Enum):
     """Состояние одежды"""
@@ -109,262 +103,6 @@ class Condition(str, Enum):
     GOOD = "good"              # Хорошее состояние
     SATISFACTORY = "satisfactory" # Удовлетворительное
     NEEDS_REPAIR = "needs_repair" # Требует ремонта
-
-# class MultiSort(BaseModel):
-#     """Модель для сортировки по нескольким критериям"""
-    
-#     primary: SortBy = Field(default=SortBy.NEWEST, description="Основной критерий сортировки")
-#     secondary: Optional[SortBy] = Field(None, description="Вторичный критерий (при равенстве primary)")
-#     tertiary: Optional[SortBy] = Field(None, description="Третичный критерий (при равенстве primary и secondary)")
-    
-#     @field_validator('secondary', 'tertiary')
-#     def validate_unique_sort_fields(cls, v, values, field):
-#         """Проверяем, что критерии не повторяются"""
-#         if v:
-#             # Проверяем, что значение не равно primary
-#             if 'primary' in values and v == values['primary']:
-#                 raise ValueError(f"{field.name} не может быть таким же как primary")
-            
-#             # Проверяем для tertiary, что не равен secondary
-#             if field.name == 'tertiary' and 'secondary' in values:
-#                 if v == values.get('secondary'):
-#                     raise ValueError("tertiary не может быть таким же как secondary")
-#         return v
-    
-#     def get_sort_expressions(self):
-#         """Возвращает список выражений для сортировки в правильном порядке"""
-#         sort_mapping = {
-#             SortBy.NEWEST: "created_at DESC",
-#             SortBy.OLDEST: "created_at ASC",
-#             SortBy.PRICE_ASC: "price ASC",
-#             SortBy.PRICE_DESC: "price DESC",
-#             SortBy.POPULAR: "((view_count * 0.5) + (favorite_count * 0.5)) DESC",
-#             SortBy.RECENTLY_VIEWED: "last_viewed DESC",
-#             SortBy.RECENTLY_UPDATED: "updated_at DESC",
-#             SortBy.EXPIRING_SOON: "expires_at ASC",
-#             SortBy.NEAREST: "distance ASC"  # Предполагается, что distance вычисляется отдельно
-#         }
-        
-#         expressions = []
-#         if self.primary in sort_mapping:
-#             expressions.append(sort_mapping[self.primary])
-#         if self.secondary and self.secondary in sort_mapping:
-#             expressions.append(sort_mapping[self.secondary])
-#         if self.tertiary and self.tertiary in sort_mapping:
-#             expressions.append(sort_mapping[self.tertiary])
-        
-#         return expressions
-
-# class SortRequest(BaseModel):
-#     """Запрос на сортировку (для API)"""
-#     sort: Optional[MultiSort] = Field(default=None, description="Параметры сортировки")
-    
-#     # Альтернативный упрощенный вариант для обратной совместимости
-#     sort_by: Optional[SortBy] = Field(default=None, description="Упрощенная сортировка (один параметр)")
-    
-#     @field_validator('sort_by')
-#     def validate_sort_fields(cls, v, values):
-#         """Проверяем, что не переданы оба параметра сортировки"""
-#         if v and values.get('sort'):
-#             raise ValueError("Используйте либо 'sort', либо 'sort_by', но не оба одновременно")
-#         return v
-    
-# # fashion__eco\Backend\app\schemas\ad.py
-
-# class CategoryFilter(BaseModel):
-#     """Модель для фильтрации по категориям"""
-    
-#     main_categories: Optional[list[ClothingCategory]] = Field(
-#         default=None,
-#         description="Основные категории: mens, womens, kids, etc"
-#     )
-    
-#     subcategories: Optional[list[ClothingCategory]] = Field(
-#         default=None,
-#         description="Подкатегории: formal, casual, sports, etc"
-#     )
-    
-#     seasons: Optional[list[ClothingCategory]] = Field(
-#         default=None,
-#         description="Сезонность: summer, winter, etc"
-#     )
-    
-#     @field_validator('main_categories', 'subcategories', 'seasons', each_item=True)
-#     def validate_category_groups(cls, v, field):
-#         """Проверяем, что категории принадлежат правильным группам"""
-#         if field.name == 'main_categories':
-#             allowed = {ClothingCategory.MENS, ClothingCategory.WOMENS, 
-#                       ClothingCategory.KIDS, ClothingCategory.UNISEX, ClothingCategory.BABY}
-#             if v not in allowed:
-#                 raise ValueError(f"Категория {v} не является основной")
-                
-#         elif field.name == 'subcategories':
-#             allowed = {ClothingCategory.FORMAL, ClothingCategory.CASUAL, 
-#                       ClothingCategory.SPORTS, ClothingCategory.OUTERWEAR,
-#                       ClothingCategory.UNDERWEAR, ClothingCategory.SWIMWEAR,
-#                       ClothingCategory.ACCESSORIES, ClothingCategory.SHOES,
-#                       ClothingCategory.BAGS, ClothingCategory.JEWELRY}
-#             if v not in allowed:
-#                 raise ValueError(f"Категория {v} не является подкатегорией")
-                
-#         elif field.name == 'seasons':
-#             allowed = {ClothingCategory.SUMMER, ClothingCategory.WINTER,
-#                       ClothingCategory.AUTUMN, ClothingCategory.SPRING,
-#                       ClothingCategory.ALL_SEASON}
-#             if v not in allowed:
-#                 raise ValueError(f"Категория {v} не является сезонной")
-#         return v
-    
-#     def get_filter_conditions(self):
-#         """Возвращает условия для фильтрации по категориям"""
-#         conditions = []
-        
-#         if self.main_categories:
-#             # Объединяем через OR для каждой основной категории
-#             main_conditions = []
-#             for category in self.main_categories:
-#                 main_conditions.append(f"category LIKE '%{category.value}%'")
-            
-#             if main_conditions:
-#                 conditions.append(f"({' OR '.join(main_conditions)})")
-        
-#         if self.subcategories:
-#             sub_conditions = []
-#             for category in self.subcategories:
-#                 sub_conditions.append(f"category LIKE '%{category.value}%'")
-            
-#             if sub_conditions:
-#                 conditions.append(f"({' OR '.join(sub_conditions)})")
-        
-#         if self.seasons:
-#             season_conditions = []
-#             for category in self.seasons:
-#                 season_conditions.append(f"tags LIKE '%{category.value}%'")
-            
-#             if season_conditions:
-#                 conditions.append(f"({' OR '.join(season_conditions)})")
-        
-#         return conditions
-    
-# class AdSearch(BaseModel):
-#     """Модель для расширенного поиска объявлений"""
-    
-#     # Текстовый поиск
-#     query: Optional[str] = Field(
-#         None, 
-#         min_length=1, 
-#         max_length=200,
-#         description="Поиск по тексту в названии, описании и тегах"
-#     )
-    
-#     # Фильтры по цене
-#     min_price: Optional[float] = Field(
-#         None, 
-#         ge=0,
-#         description="Минимальная цена"
-#     )
-#     max_price: Optional[float] = Field(
-#         None, 
-#         ge=0,
-#         description="Максимальная цена"
-#     )
-    
-#     # Фильтры по типу
-#     ad_types: Optional[list[AdType]] = Field(
-#         None,
-#         description="Типы объявлений (можно несколько)"
-#     )
-    
-#     # Фильтр по состоянию
-#     conditions: Optional[list[Condition]] = Field(
-#         None,
-#         description="Состояние товара (можно несколько)"
-#     )
-    
-#     # Фильтр по размеру
-#     sizes: Optional[list[str]] = Field(
-#         None,
-#         description="Размеры одежды (XS, S, M, L, XL и т.д.)"
-#     )
-    
-#     # Фильтр по бренду
-#     brands: Optional[list[str]] = Field(
-#         None,
-#         description="Бренды одежды"
-#     )
-    
-#     # Фильтр по цвету
-#     colors: Optional[list[str]] = Field(
-#         None,
-#         description="Цвета"
-#     )
-    
-#     # Фильтр по местоположению
-#     location: Optional[str] = Field(
-#         None,
-#         description="Город или район"
-#     )
-    
-#     # Фильтр по радиусу (если есть координаты)
-#     radius_km: Optional[float] = Field(
-#         None,
-#         ge=0,
-#         le=100,
-#         description="Радиус поиска в километрах (требуются координаты)"
-#     )
-    
-#     # Фильтр по дате
-#     created_after: Optional[str] = Field(
-#         None,
-#         description="Объявления созданные после даты (YYYY-MM-DD)"
-#     )
-#     created_before: Optional[str] = Field(
-#         None,
-#         description="Объявления созданные до даты (YYYY-MM-DD)"
-#     )
-    
-#     # Сложная фильтрация по категориям
-#     categories: Optional[CategoryFilter] = Field(
-#         None,
-#         description="Фильтрация по категориям одежды"
-#     )
-    
-#     # Сложная сортировка
-#     sorting: Optional[SortRequest] = Field(
-#         None,
-#         description="Параметры сортировки"
-#     )
-    
-#     # Пагинация
-#     page: int = Field(
-#         default=1,
-#         ge=1,
-#         description="Номер страницы"
-#     )
-#     per_page: int = Field(
-#         default=20,
-#         ge=1,
-#         le=100,
-#         description="Количество элементов на странице"
-#     )
-    
-#     # Дополнительные фильтры
-#     only_active: bool = Field(
-#         default=True,
-#         description="Только активные объявления"
-#     )
-#     only_with_images: bool = Field(
-#         default=False,
-#         description="Только с фотографиями"
-#     )
-#     only_negotiable: Optional[bool] = Field(
-#         None,
-#         description="Только с возможностью торга"
-#     )
-#     only_fresh: Optional[bool] = Field(
-#         None,
-#         description="Только свежие (созданные за последние 7 дней)"
-#     )
 
 class AdSearch(BaseModel):
     """Схема для расширенного поиска объявлений"""

@@ -28,9 +28,18 @@ class AdService:
         db: AsyncSession, 
         skip: int = 0, 
         limit: int = 100,
+        status: Optional[str] = None,
         type: Optional[str] = None,
-        category: Optional[str] = None,
-        active_only: bool = True
+        main_category: Optional[str] = None,
+        sub_category: Optional[str] = None,
+        season: Optional[str] = None,
+        condition: Optional[str] = None,
+        min_price: Optional[float] = None,
+        max_price: Optional[float] = None,
+        size: Optional[str] = None,
+        color: Optional[str] = None,
+        query: Optional[str] = None,
+        sort: Optional[str] = "newest"
     ) -> list[Ad]:
         """Получить список объявлений с фильтрацией"""
         stmt = select(Ad).options(
@@ -38,16 +47,93 @@ class AdService:
             selectinload(Ad.user)
         )
         
-        if active_only:
-            stmt = stmt.where(Ad.is_active == True)
+        # Фильтр по статусу (активные по умолчанию)
+        if status:
+            if status.lower() == "active":
+                stmt = stmt.where(Ad.status == AdStatus.ACTIVE)
+            elif status.lower() == "inactive":
+                stmt = stmt.where(Ad.status == AdStatus.INACTIVE)
+        else:
+            # По умолчанию показываем только активные
+            stmt = stmt.where(Ad.status == AdStatus.ACTIVE)
         
         # Фильтр по типу
         if type:
             stmt = stmt.where(Ad.type == type)
-        if category:
-            stmt = stmt.where(Ad.category == category)
-            
-        stmt = stmt.offset(skip).limit(limit).order_by(desc(Ad.created_at))
+
+        # Фильтр по основной категории
+        if main_category and hasattr(Ad, 'main_category'):
+            stmt = stmt.where(Ad.main_category == main_category)
+        
+        # Фильтр по подкатегории
+        if sub_category and hasattr(Ad, 'sub_category'):
+            stmt = stmt.where(Ad.sub_category == sub_category)
+        
+        # Фильтр по сезону
+        if season and hasattr(Ad, 'season'):
+            stmt = stmt.where(Ad.season == season)
+        
+        # Фильтр по состоянию
+        if condition and hasattr(Ad, 'condition'):
+            stmt = stmt.where(Ad.condition == condition)
+
+        # Фильтр по цене
+        if min_price is not None:
+            stmt = stmt.where(Ad.price >= min_price)
+        if max_price is not None:
+            stmt = stmt.where(Ad.price <= max_price)
+
+        # Фильтр по размеру
+        if size and hasattr(Ad, 'size'):
+            stmt = stmt.where(Ad.size.ilike(f"%{size}%"))
+        
+        # Фильтр по цвету
+        if color and hasattr(Ad, 'colors'):
+            try:
+                # Для PostgreSQL
+                if db.bind.dialect.name == 'postgresql':
+                    stmt = stmt.where(
+                        Ad.colors.op('@>')([color.lower()])
+                    )
+                else:
+                    stmt = stmt.where(
+                        cast(Ad.colors, String).ilike(f'%"{color.lower()}"%')
+                    )
+            except:
+                pass  # Игнорируем ошибки если поле colors не существует
+        
+        # Текстовый поиск
+        if query:
+            search_query = f"%{query}%"
+            stmt = stmt.where(
+                or_(
+                    Ad.title.ilike(search_query),
+                    Ad.description.ilike(search_query),
+                    Ad.tags.ilike(search_query)
+                )
+            )
+        
+        # Сортировка
+        if sort == "newest":
+            stmt = stmt.order_by(desc(Ad.created_at))
+        elif sort == "oldest":
+            stmt = stmt.order_by(asc(Ad.created_at))
+        elif sort == "price_asc":
+            stmt = stmt.order_by(asc(Ad.price))
+        elif sort == "price_desc":
+            stmt = stmt.order_by(desc(Ad.price))
+        elif sort == "popular":
+            # Композитная сортировка по просмотрам и избранным
+            stmt = stmt.order_by(
+                desc(Ad.view_count),
+                desc(Ad.favorite_count),
+                desc(Ad.created_at)
+            )
+        else:
+            stmt = stmt.order_by(desc(Ad.created_at))
+        
+        # Пагинация
+        stmt = stmt.offset(skip).limit(limit)
         
         result = await db.execute(stmt)
         return result.scalars().all()
@@ -74,7 +160,7 @@ class AdService:
         user_id: int
     ) -> Ad:
         """Создать новое объявление"""
-        db_ad = Ad(**ad_data.model_dump(), user_id=user_id)
+        db_ad = Ad(**ad_data.model_dump(), user_id=user_id, status=AdStatus.ACTIVE)
         db.add(db_ad)
         await db.commit()
         await db.refresh(db_ad, ['images', 'user'])
@@ -135,8 +221,8 @@ class AdService:
         
         if soft_delete:
             # Мягкое удаление
-            ad.is_active = False
-            ad.deleted_at = datetime.now(timezone.utc)
+            ad.status = AdStatus.INACTIVE
+            # ad.deleted_at = datetime.now(timezone.utc)
         else:
             # Физическое удаление
             # Сначала удаляем связанные записи
@@ -158,7 +244,7 @@ class AdService:
     async def get_user_ads(
         db: AsyncSession, 
         user_id: int, 
-        active_only: Optional[bool] = None,
+        status: Optional[str] = None,
         skip: int = 0, 
         limit: int = 100
     ) -> list[Ad]:
@@ -167,8 +253,12 @@ class AdService:
             selectinload(Ad.images)
         ).where(Ad.user_id == user_id)
         
-        if active_only is not None:
-            stmt = stmt.where(Ad.is_active == active_only)
+        if status is not None:
+            if status == "active":
+                stmt = stmt.where(Ad.status == AdStatus.ACTIVE)
+            elif status == "inactive":
+                stmt = stmt.where(Ad.status == AdStatus.INACTIVE)
+            # Можно добавить другие статусы при необходимости
             
         stmt = stmt.offset(skip).limit(limit).order_by(desc(Ad.created_at))
         
@@ -176,7 +266,13 @@ class AdService:
         return result.scalars().all()
     
     @staticmethod
-    async def toggle_ad_status(db: AsyncSession, ad_id: int, user_id: int, is_admin: bool = False, activate: bool = True) -> Optional[Ad]:
+    async def toggle_ad_status(
+        db: AsyncSession, 
+        ad_id: int, 
+        user_id: int, 
+        is_admin: bool = False, 
+        activate: bool = True
+    ) -> Optional[Ad]:
         """Активировать/деактивировать объявление"""
         # Проверяем права доступа
         if is_admin:
@@ -190,9 +286,11 @@ class AdService:
         if not ad:
             return None
         
-        ad.is_active = activate
-        if not activate:
-            ad.deactivated_at = datetime.utcnow()
+        if activate:
+            ad.status = AdStatus.ACTIVE
+        else:
+            ad.status = AdStatus.INACTIVE
+            # ad.deactivated_at = datetime.utcnow()
         
         await db.commit()
         await db.refresh(ad)
@@ -200,70 +298,70 @@ class AdService:
     
     # ---------- Поиск ----------
     
-    @staticmethod
-    async def search_ads(
-        db: AsyncSession,
-        query: Optional[str] = None,
-        min_price: Optional[float] = None,
-        max_price: Optional[float] = None,
-        type: Optional[str] = None,
-        category: Optional[str] = None,
-        location: Optional[str] = None,
-        sort_by: str = "newest",  # newest, oldest, price_asc, price_desc, popular
-        skip: int = 0,
-        limit: int = 100
-    ) -> list[Ad]:
-        """Расширенный поиск объявлений"""
-        stmt = select(Ad).options(
-            selectinload(Ad.images),
-            selectinload(Ad.user)
-        ).where(Ad.is_active == True)
+    # @staticmethod
+    # async def search_ads(
+    #     db: AsyncSession,
+    #     query: Optional[str] = None,
+    #     min_price: Optional[float] = None,
+    #     max_price: Optional[float] = None,
+    #     type: Optional[str] = None,
+    #     category: Optional[str] = None,
+    #     location: Optional[str] = None,
+    #     sort_by: str = "newest",  # newest, oldest, price_asc, price_desc, popular
+    #     skip: int = 0,
+    #     limit: int = 100
+    # ) -> list[Ad]:
+    #     """Расширенный поиск объявлений"""
+    #     stmt = select(Ad).options(
+    #         selectinload(Ad.images),
+    #         selectinload(Ad.user)
+    #     ).where(Ad.is_active == True)
         
-        # Текстовый поиск
-        if query:
-            search_query = f"%{query}%"
-            stmt = stmt.where(
-                or_(
-                    Ad.title.ilike(search_query),
-                    Ad.description.ilike(search_query),
-                    Ad.tags.ilike(search_query)
-                )
-            )
+    #     # Текстовый поиск
+    #     if query:
+    #         search_query = f"%{query}%"
+    #         stmt = stmt.where(
+    #             or_(
+    #                 Ad.title.ilike(search_query),
+    #                 Ad.description.ilike(search_query),
+    #                 Ad.tags.ilike(search_query)
+    #             )
+    #         )
         
-        # Фильтр по цене
-        if min_price is not None:
-            stmt = stmt.where(Ad.price >= min_price)
-        if max_price is not None:
-            stmt = stmt.where(Ad.price <= max_price)
+    #     # Фильтр по цене
+    #     if min_price is not None:
+    #         stmt = stmt.where(Ad.price >= min_price)
+    #     if max_price is not None:
+    #         stmt = stmt.where(Ad.price <= max_price)
         
-        # Фильтр по типу
-        if type:
-            stmt = stmt.where(Ad.type == type)
+    #     # Фильтр по типу
+    #     if type:
+    #         stmt = stmt.where(Ad.type == type)
         
-        # Фильтр по категории
-        if category:
-            stmt = stmt.where(Ad.category == category)
+    #     # Фильтр по категории
+    #     if category:
+    #         stmt = stmt.where(Ad.category == category)
         
-        # Фильтр по местоположению
-        if location:
-            stmt = stmt.where(Ad.location.ilike(f"%{location}%"))
+    #     # Фильтр по местоположению
+    #     if location:
+    #         stmt = stmt.where(Ad.location.ilike(f"%{location}%"))
         
-        # Сортировка
-        if sort_by == "newest":
-            stmt = stmt.order_by(desc(Ad.created_at))
-        elif sort_by == "oldest":
-            stmt = stmt.order_by(asc(Ad.created_at))
-        elif sort_by == "price_asc":
-            stmt = stmt.order_by(asc(Ad.price))
-        elif sort_by == "price_desc":
-            stmt = stmt.order_by(desc(Ad.price))
-        elif sort_by == "popular":
-            stmt = stmt.order_by(desc(Ad.view_count))
+    #     # Сортировка
+    #     if sort_by == "newest":
+    #         stmt = stmt.order_by(desc(Ad.created_at))
+    #     elif sort_by == "oldest":
+    #         stmt = stmt.order_by(asc(Ad.created_at))
+    #     elif sort_by == "price_asc":
+    #         stmt = stmt.order_by(asc(Ad.price))
+    #     elif sort_by == "price_desc":
+    #         stmt = stmt.order_by(desc(Ad.price))
+    #     elif sort_by == "popular":
+    #         stmt = stmt.order_by(desc(Ad.view_count))
         
-        stmt = stmt.offset(skip).limit(limit)
+    #     stmt = stmt.offset(skip).limit(limit)
         
-        result = await db.execute(stmt)
-        return result.scalars().all()
+    #     result = await db.execute(stmt)
+    #     return result.scalars().all()
     
 
     @staticmethod
@@ -291,10 +389,10 @@ class AdService:
 
         # 1. ФИЛЬТРАЦИЯ ПО СТАТУСУ
         if search_params.status == AdStatus.ACTIVE:
-            stmt = stmt.where(Ad.is_active == True)
+            stmt = stmt.where(Ad.status == AdStatus.ACTIVE)
             applied_filters["status"] = "active"
         elif search_params.status == AdStatus.INACTIVE:
-            stmt = stmt.where(Ad.is_active == False)
+            stmt = stmt.where(Ad.status == AdStatus.INACTIVE)
             applied_filters["status"] = "inactive"
         # Для "all" не применяем фильтр
         
@@ -1083,7 +1181,12 @@ class AdService:
         await db.commit()
     
     @staticmethod
-    async def get_ad_stats(db: AsyncSession, ad_id: int, user_id: int, is_admin: bool = False) -> Optional[dict[str, Any]]:
+    async def get_ad_stats(
+        db: AsyncSession, 
+        ad_id: int, 
+        user_id: int, 
+        is_admin: bool = False
+    ) -> Optional[dict[str, Any]]:
         """Получить статистику объявления"""
         # Проверяем права доступа
         if is_admin:
@@ -1102,5 +1205,5 @@ class AdService:
             "favorites": ad.favorite_count or 0,
             "created_at": ad.created_at,
             "updated_at": ad.updated_at,
-            "is_active": ad.is_active
+            "status": ad.status if ad.status else "unknown"
         }
