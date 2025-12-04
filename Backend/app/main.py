@@ -22,9 +22,34 @@ async def lifespan(app: FastAPI):
     # При запуске: создаем таблицы
     await create_db_and_tables()
     print("✅ Database tables created successfully")
+    
+    # Инициализируем тестовые данные секондхендов
+    await initialize_secondhands_data()
+    
     yield
     # При остановке: закрываем соединения
     print("🔴 Application shutting down")
+
+async def initialize_secondhands_data():
+    """Инициализация тестовых данных секондхендов при запуске"""
+    try:
+        from Backend.app.core.database import engine
+        from Backend.app.core.initial_data import initialize_secondhands_sync
+        from sqlalchemy.orm import sessionmaker
+        from sqlalchemy import create_engine
+        
+        # Создаем синхронную сессию для инициализации (функция написана для синхронной работы)
+        db_url = str(engine.url).replace('+aiosqlite', '')
+        sync_engine = create_engine(db_url, connect_args={"check_same_thread": False})
+        SessionLocal = sessionmaker(bind=sync_engine)
+        
+        with SessionLocal() as sync_db:
+            initialize_secondhands_sync(sync_db)
+                
+    except Exception as e:
+        print(f"⚠️ Ошибка при инициализации секондхендов: {e}")
+        import traceback
+        traceback.print_exc()
 
 app = FastAPI(
     title="Fashion Eco API",

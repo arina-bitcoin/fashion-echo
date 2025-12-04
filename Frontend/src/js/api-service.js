@@ -57,6 +57,7 @@ class ApiService {
             
             const responseText = await response.text();
             const data = responseText ? JSON.parse(responseText) : {};
+            console.log(`📦 API Response data for ${endpoint}:`, data);
             return data;
             
         } catch (error) {
@@ -275,6 +276,48 @@ class ApiService {
     async getUserPublicInfo(userId) {
         console.log('👤 Getting public user info:', userId);
         return this.request(`/users/${userId}/public`);
+    }
+
+    // Secondhand (секондхенды) methods
+    async getSecondhands(params = {}) {
+        console.log('🏪 Getting secondhands with params:', params);
+        const queryParams = new URLSearchParams();
+        
+        if (params.city) queryParams.append('city', params.city);
+        if (params.search) queryParams.append('search', params.search);
+        if (params.is_active !== undefined) queryParams.append('is_active', params.is_active);
+        if (params.skip !== undefined) queryParams.append('skip', params.skip);
+        if (params.limit !== undefined) queryParams.append('limit', params.limit);
+        
+        const queryString = queryParams.toString();
+        const endpoint = queryString ? `/secondhand/?${queryString}` : '/secondhand/';
+        return this.request(endpoint);
+    }
+
+    async getSecondhandsForMap(bounds) {
+        console.log('🗺️ Getting secondhands for map with bounds:', bounds);
+        const queryParams = new URLSearchParams();
+        if (bounds) {
+            queryParams.append('ne_lat', bounds.ne_lat);
+            queryParams.append('ne_lng', bounds.ne_lng);
+            queryParams.append('sw_lat', bounds.sw_lat);
+            queryParams.append('sw_lng', bounds.sw_lng);
+        }
+        const queryString = queryParams.toString();
+        const endpoint = queryString ? `/secondhand/map?${queryString}` : '/secondhand/map';
+        const result = await this.request(endpoint);
+        console.log('✅ getSecondhandsForMap result:', result, 'Length:', Array.isArray(result) ? result.length : 'not an array');
+        return result;
+    }
+
+    async getSecondhand(secondhandId) {
+        console.log('🏪 Getting secondhand:', secondhandId);
+        return this.request(`/secondhand/${secondhandId}`);
+    }
+
+    async searchSecondhandsByRadius(lat, lng, radiusKm = 5) {
+        console.log('🔍 Searching secondhands by radius:', { lat, lng, radiusKm });
+        return this.request(`/secondhand/search?lat=${lat}&lng=${lng}&radius_km=${radiusKm}`);
     }
 
     // Token management

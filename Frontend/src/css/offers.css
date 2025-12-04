@@ -220,8 +220,11 @@ body {
     background: #f59e0b;
 }
 
-/* Поиск - точно как на главной странице */
+/* Поиск и фильтры в одном контейнере */
 .search-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
     padding: 14px;
     background: var(--card-color);
     border-radius: 16px;
@@ -236,6 +239,7 @@ body {
 }
 
 .search-input-wrapper {
+    flex: 1;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -258,7 +262,7 @@ body {
 
 /* Кнопка фильтров */
 .btn-filters {
-    width: auto;
+    flex-shrink: 0;
     padding: 8px 16px;
     border: none;
     border-radius: 9999px;
@@ -268,8 +272,7 @@ body {
     font-size: 0.9rem;
     cursor: pointer;
     transition: all 0.2s;
-    margin-bottom: 14px;
-    align-self: flex-start;
+    white-space: nowrap;
 }
 
 .btn-filters:hover {
@@ -607,7 +610,16 @@ body {
     }
     
     .search-card {
-        margin-bottom: 10px;
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .search-input-wrapper {
+        width: 100%;
+    }
+    
+    .btn-filters {
+        width: 100%;
     }
 
     .modal-content {

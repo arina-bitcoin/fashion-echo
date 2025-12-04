@@ -1,5 +1,5 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, func
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import and_, or_, func, select
 from typing import List, Optional, Tuple
 import logging
 import math
@@ -20,22 +20,24 @@ class SecondhandService:
     def __init__(self):
         self.map_service = MapService()
 
-    def get_secondhand_by_id(self, db: Session, secondhand_id: int) -> Optional[Secondhand]:
+    async def get_secondhand_by_id(self, db: AsyncSession, secondhand_id: int) -> Optional[Secondhand]:
         """
         Получить секондхенд по ID
         """
         try:
-            return db.query(Secondhand).filter(
+            stmt = select(Secondhand).filter(
                 Secondhand.id == secondhand_id,
                 Secondhand.is_active == True
-            ).first()
+            )
+            result = await db.execute(stmt)
+            return result.scalar_one_or_none()
         except Exception as e:
             logger.error(f"Error getting secondhand by id {secondhand_id}: {e}")
             return None
 
-    def get_secondhands(
+    async def get_secondhands(
         self, 
-        db: Session, 
+        db: AsyncSession, 
         filters: SecondhandFilters,
         skip: int = 0, 
         limit: int = 100
@@ -44,39 +46,43 @@ class SecondhandService:
         Получить список секондхендов с фильтрацией и пагинацией
         """
         try:
-            query = db.query(Secondhand)
+            stmt = select(Secondhand)
             
             # Применяем фильтры
-            query = self._apply_filters(query, filters)
+            stmt = self._apply_filters(stmt, filters)
             
             # Получаем общее количество для пагинации
-            total = query.count()
+            count_stmt = select(func.count()).select_from(stmt.subquery())
+            count_result = await db.execute(count_stmt)
+            total = count_result.scalar() or 0
             
             # Применяем пагинацию и сортировку
-            items = query.order_by(Secondhand.name.asc()).offset(skip).limit(limit).all()
+            stmt = stmt.order_by(Secondhand.name.asc()).offset(skip).limit(limit)
+            result = await db.execute(stmt)
+            items = result.scalars().all()
             
-            return items, total
+            return list(items), total
             
         except Exception as e:
             logger.error(f"Error getting secondhands: {e}")
             return [], 0
 
-    def _apply_filters(self, query, filters: SecondhandFilters):
+    def _apply_filters(self, stmt, filters: SecondhandFilters):
         """
         Применить фильтры к запросу
         """
         # Фильтр по активности
         if filters.is_active is not None:
-            query = query.filter(Secondhand.is_active == filters.is_active)
+            stmt = stmt.filter(Secondhand.is_active == filters.is_active)
         
         # Фильтр по городу
         if filters.city:
-            query = query.filter(func.lower(Secondhand.city) == func.lower(filters.city))
+            stmt = stmt.filter(func.lower(Secondhand.city) == func.lower(filters.city))
         
         # Поиск по названию или адресу
         if filters.search:
             search_pattern = f"%{filters.search}%"
-            query = query.filter(
+            stmt = stmt.filter(
                 or_(
                     Secondhand.name.ilike(search_pattern),
                     Secondhand.address.ilike(search_pattern),
@@ -84,11 +90,11 @@ class SecondhandService:
                 )
             )
         
-        return query
+        return stmt
 
-    def get_secondhands_in_bounds(
+    async def get_secondhands_in_bounds(
         self, 
-        db: Session, 
+        db: AsyncSession, 
         ne_lat: float, 
         ne_lng: float, 
         sw_lat: float, 
@@ -98,20 +104,22 @@ class SecondhandService:
         Получить секондхенды в границах карты
         """
         try:
-            return db.query(Secondhand).filter(
+            stmt = select(Secondhand).filter(
                 Secondhand.is_active == True,
                 Secondhand.latitude.isnot(None),
                 Secondhand.longitude.isnot(None),
                 Secondhand.latitude.between(sw_lat, ne_lat),
                 Secondhand.longitude.between(sw_lng, ne_lng)
-            ).all()
+            )
+            result = await db.execute(stmt)
+            return list(result.scalars().all())
         except Exception as e:
             logger.error(f"Error getting secondhands in bounds: {e}")
             return []
 
-    def search_nearby(
+    async def search_nearby(
         self, 
-        db: Session, 
+        db: AsyncSession, 
         lat: float, 
         lng: float, 
         radius_km: float = 5
@@ -123,20 +131,23 @@ class SecondhandService:
             # Простая прямоугольная область вокруг точки
             # В реальном проекте используем PostGIS или специальные расширения
             lat_offset = radius_km / 111.0  # примерно 1 градус = 111 км
-            lng_offset = radius_km / (111.0 * abs(func.cos(func.radians(lat))))
+            import math
+            lng_offset = radius_km / (111.0 * abs(math.cos(math.radians(lat))))
             
-            return db.query(Secondhand).filter(
+            stmt = select(Secondhand).filter(
                 Secondhand.is_active == True,
                 Secondhand.latitude.isnot(None),
                 Secondhand.longitude.isnot(None),
                 Secondhand.latitude.between(lat - lat_offset, lat + lat_offset),
                 Secondhand.longitude.between(lng - lng_offset, lng + lng_offset)
-            ).all()
+            )
+            result = await db.execute(stmt)
+            return list(result.scalars().all())
         except Exception as e:
             logger.error(f"Error searching nearby secondhands: {e}")
             return []
 
-    def create_secondhand(self, db: Session, secondhand_data: SecondhandCreate) -> Secondhand:
+    async def create_secondhand(self, db: AsyncSession, secondhand_data: SecondhandCreate) -> Secondhand:
         """
         Создать новый секондхенд
         """
@@ -166,20 +177,20 @@ class SecondhandService:
             )
             
             db.add(db_secondhand)
-            db.commit()
-            db.refresh(db_secondhand)
+            await db.commit()
+            await db.refresh(db_secondhand)
             
             logger.info(f"Created secondhand: {db_secondhand.name} (ID: {db_secondhand.id})")
             return db_secondhand
             
         except Exception as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error creating secondhand: {e}")
             raise
 
-    def update_secondhand(
+    async def update_secondhand(
         self, 
-        db: Session, 
+        db: AsyncSession, 
         secondhand_id: int, 
         secondhand_data: SecondhandUpdate
     ) -> Optional[Secondhand]:
@@ -187,12 +198,12 @@ class SecondhandService:
         Обновить информацию о секондхенде
         """
         try:
-            db_secondhand = self.get_secondhand_by_id(db, secondhand_id)
+            db_secondhand = await self.get_secondhand_by_id(db, secondhand_id)
             if not db_secondhand:
                 return None
 
             # Обновляем только переданные поля
-            update_data = secondhand_data.dict(exclude_unset=True)
+            update_data = secondhand_data.model_dump(exclude_unset=True)
             
             # Если обновился адрес, перегеокодируем координаты
             if 'address' in update_data or 'city' in update_data:
@@ -205,34 +216,34 @@ class SecondhandService:
             for field, value in update_data.items():
                 setattr(db_secondhand, field, value)
 
-            db.commit()
-            db.refresh(db_secondhand)
+            await db.commit()
+            await db.refresh(db_secondhand)
             
             logger.info(f"Updated secondhand ID: {secondhand_id}")
             return db_secondhand
             
         except Exception as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error updating secondhand {secondhand_id}: {e}")
             return None
 
-    def delete_secondhand(self, db: Session, secondhand_id: int) -> bool:
+    async def delete_secondhand(self, db: AsyncSession, secondhand_id: int) -> bool:
         """
         Мягкое удаление секондхенда
         """
         try:
-            db_secondhand = self.get_secondhand_by_id(db, secondhand_id)
+            db_secondhand = await self.get_secondhand_by_id(db, secondhand_id)
             if not db_secondhand:
                 return False
 
             db_secondhand.is_active = False
-            db.commit()
+            await db.commit()
             
             logger.info(f"Soft deleted secondhand ID: {secondhand_id}")
             return True
             
         except Exception as e:
-            db.rollback()
+            await db.rollback()
             logger.error(f"Error deleting secondhand {secondhand_id}: {e}")
             return False
 
@@ -268,9 +279,9 @@ class SecondhandService:
             logger.error(f"Error in bulk create: {e}")
             return []
 
-    def get_clusters_in_bounds(
+    async def get_clusters_in_bounds(
         self,
-        db: Session,
+        db: AsyncSession,
         zoom: int,
         ne_lat: float,
         ne_lng: float,
@@ -280,7 +291,7 @@ class SecondhandService:
         """
         Получить кластеры секондхендов в границах карты для указанного zoom.
         """
-        points = self.get_secondhands_in_bounds(
+        points = await self.get_secondhands_in_bounds(
             db,
             ne_lat=ne_lat,
             ne_lng=ne_lng,

@@ -48,9 +48,9 @@ def backup_secondhands(db: Session, backup_dir: str = "db/backups") -> str:
     return backup_path
 
 
-def initialize_secondhands(db: Session):
+def initialize_secondhands_sync(db: Session):
     """
-    Инициализация таблицы секондхендов тестовыми данными.
+    Инициализация таблицы секондхендов тестовыми данными (синхронная версия).
     Если в таблице уже есть записи, ничего не делает.
     """
     existing_count = db.query(Secondhand).count()
@@ -175,3 +175,8 @@ def initialize_secondhands(db: Session):
     db.commit()
 
     print(f"✅ Инициализация завершена: добавлено {len(secondhands_data)} секондхендов.")
+
+
+def initialize_secondhands(db: Session):
+    """Алиас для обратной совместимости"""
+    return initialize_secondhands_sync(db)
