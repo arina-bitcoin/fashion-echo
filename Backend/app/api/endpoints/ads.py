@@ -295,10 +295,8 @@ async def update_ad(
     current_user: User = Depends(get_current_user),
 ):
     """Обновить объявление (только владелец)"""
-    # ad_dict = ad_data.dict(exclude_unset=True)
-    
-    # if not ad_dict:
-    #     raise HTTPException(status_code=400, detail="No fields to update")
+    print(f"📤 Данные для обновления объявления {ad_id}: {ad_data.dict()}")
+    print(f"📤 Тип данных: {type(ad_data)}")
     
     ad = await AdService.update_ad(db, ad_id, current_user.id, ad_data)
     if not ad:

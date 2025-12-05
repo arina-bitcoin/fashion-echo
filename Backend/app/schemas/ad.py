@@ -53,7 +53,7 @@ class AdUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=200)
     description: Optional[str] = Field(None, max_length=5000)
     price: Optional[float] = Field(None, ge=0)
-    condition: Optional[str] = None
+    condition: Optional[Condition] = None
     main_category: Optional[str] = None
     sub_category: Optional[str] = None
     season: Optional[str] = None
@@ -63,8 +63,11 @@ class AdUpdate(BaseModel):
     location: Optional[str] = None
     is_negotiable: Optional[bool] = None
     brand: Optional[str] = None
-    # === ИЗМЕНЕНИЕ: Убираем is_active, добавляем status ===
     status: Optional[AdStatus] = None
+    images: Optional[list[str]] = Field(
+        None, 
+        description="Список путей к изображениям (например, ['media/ads/abc.jpg', 'media/ads/def.jpg'])"
+    )
 
 class AdResponse(AdBase):
     id: int
