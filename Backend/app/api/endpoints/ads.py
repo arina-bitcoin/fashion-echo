@@ -93,6 +93,40 @@ async def get_ad(ad_id: int, db: AsyncSession = Depends(get_db)):
     return ad
 
 
+@router.put("/{ad_id}", response_model=AdResponse)
+async def update_ad(
+    ad_id: int,
+    ad_data: AdUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Обновить объявление (только владелец)"""
+    ad_dict = ad_data.dict(exclude_unset=True)
+    
+    if not ad_dict:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    ad = await AdService.update_ad(db, ad_id, current_user.id, ad_dict)
+    if not ad:
+        raise HTTPException(status_code=404, detail="Ad not found or you don't have permission")
+    
+    return ad
+
+
+@router.delete("/{ad_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_ad(
+    ad_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Удалить объявление (только владелец)"""
+    success = await AdService.delete_ad(db, ad_id, current_user.id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Ad not found or you don't have permission")
+    
+    return None
+
+
 # ---------- Загрузка изображений ----------
 
 @router.post("/upload-image")

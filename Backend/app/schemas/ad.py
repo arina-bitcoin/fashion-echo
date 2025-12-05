@@ -40,10 +40,20 @@ class AdCreate(AdBase):
         return v
 
 class AdUpdate(BaseModel):
+    type: Optional[AdType] = None
     title: Optional[str] = None
     description: Optional[str] = None
     price: Optional[float] = None
     is_active: Optional[bool] = None
+    condition: Optional[str] = None
+    main_categories: Optional[List[str]] = None
+    subcategories: Optional[List[str]] = None
+    seasons: Optional[List[str]] = None
+    size: Optional[str] = None
+    brand: Optional[str] = None
+    colors: Optional[List[str]] = None
+    images: Optional[List[str]] = None
+    category: Optional[str] = None  # Для обратной совместимости
 
 class AdResponse(AdBase):
     id: int

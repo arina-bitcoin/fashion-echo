@@ -133,6 +133,12 @@ class MyAdsPage {
                     <button class="btn btn-secondary btn-small" onclick="window.location.href='product.html?id=${ad.id}'">
                         Просмотр
                     </button>
+                    <button class="btn btn-primary btn-small" onclick="window.myAdsPage.editAd(${ad.id})">
+                        Редактировать
+                    </button>
+                    <button class="btn btn-danger btn-small" onclick="window.myAdsPage.deleteAd(${ad.id})" style="background: #ef4444; color: white;">
+                        Удалить
+                    </button>
                     <button class="btn btn-primary btn-small" onclick="window.myAdsPage.toggleAdStatus(${ad.id}, ${!ad.is_active})">
                         ${ad.is_active ? 'Деактивировать' : 'Активировать'}
                     </button>
@@ -144,9 +150,63 @@ class MyAdsPage {
     }
 
     async toggleAdStatus(adId, newStatus) {
-        // TODO: Реализовать изменение статуса объявления через API
-        console.log(`🔄 Изменение статуса объявления ${adId} на ${newStatus ? 'активно' : 'неактивно'}`);
-        alert('Функция изменения статуса будет реализована позже');
+        try {
+            console.log(`🔄 Изменение статуса объявления ${adId} на ${newStatus ? 'активно' : 'неактивно'}`);
+            await window.apiService.updateAd(adId, { is_active: newStatus });
+            this.showSuccess('Статус объявления успешно изменен');
+            await this.loadAds();
+        } catch (error) {
+            console.error('❌ Ошибка изменения статуса:', error);
+            this.showError('Не удалось изменить статус объявления');
+        }
+    }
+
+    async editAd(adId) {
+        // Переход на страницу редактирования с параметром id
+        window.location.href = `create-ad.html?edit=${adId}`;
+    }
+
+    async deleteAd(adId) {
+        // Подтверждение удаления
+        const ad = this.ads.find(a => a.id === adId);
+        const adTitle = ad ? ad.title : 'это объявление';
+        
+        if (!confirm(`Вы уверены, что хотите удалить объявление "${adTitle}"?\n\nЭто действие нельзя отменить.`)) {
+            return;
+        }
+
+        try {
+            console.log(`🗑️ Удаление объявления ${adId}`);
+            await window.apiService.deleteAd(adId);
+            this.showSuccess('Объявление успешно удалено');
+            await this.loadAds();
+        } catch (error) {
+            console.error('❌ Ошибка удаления объявления:', error);
+            this.showError('Не удалось удалить объявление');
+        }
+    }
+
+    showSuccess(message) {
+        // Простое уведомление об успехе
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #10b981;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 10000;
+            font-weight: 500;
+        `;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
     }
 
     getImageUrl(ad) {

@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_, and_, func, cast, String
+from sqlalchemy import select, or_, and_, func, cast, String, delete
 from typing import Optional, List
 from Backend.app.models.ad import Ad
 from Backend.app.schemas.ad import AdCreate
@@ -179,3 +179,38 @@ class AdService:
         stmt = select(Ad).filter(Ad.user_id == user_id)
         result = await db.execute(stmt)
         return list(result.scalars().all())
+    
+    @staticmethod
+    async def update_ad(db: AsyncSession, ad_id: int, user_id: int, ad_data: dict) -> Optional[Ad]:
+        """Обновить объявление"""
+        stmt = select(Ad).filter(Ad.id == ad_id, Ad.user_id == user_id)
+        result = await db.execute(stmt)
+        ad = result.scalar_one_or_none()
+        
+        if not ad:
+            return None
+        
+        # Обновляем только переданные поля
+        for key, value in ad_data.items():
+            if value is not None:
+                setattr(ad, key, value)
+        
+        await db.commit()
+        await db.refresh(ad)
+        return ad
+    
+    @staticmethod
+    async def delete_ad(db: AsyncSession, ad_id: int, user_id: int) -> bool:
+        """Удалить объявление"""
+        stmt = select(Ad).filter(Ad.id == ad_id, Ad.user_id == user_id)
+        result = await db.execute(stmt)
+        ad = result.scalar_one_or_none()
+        
+        if not ad:
+            return False
+        
+        # Удаляем объявление
+        delete_stmt = delete(Ad).where(Ad.id == ad_id, Ad.user_id == user_id)
+        await db.execute(delete_stmt)
+        await db.commit()
+        return True

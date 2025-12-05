@@ -261,6 +261,21 @@ class ApiService {
         return this.request('/users/me/ads');
     }
 
+    async updateAd(adId, adData) {
+        console.log('✏️ Updating ad:', adId, adData);
+        return this.request(`/ads/${adId}`, {
+            method: 'PUT',
+            body: JSON.stringify(adData)
+        });
+    }
+
+    async deleteAd(adId) {
+        console.log('🗑️ Deleting ad:', adId);
+        return this.request(`/ads/${adId}`, {
+            method: 'DELETE'
+        });
+    }
+
     async uploadAdImage(file) {
         console.log('📤 Uploading ad image:', file.name);
         const formData = new FormData();

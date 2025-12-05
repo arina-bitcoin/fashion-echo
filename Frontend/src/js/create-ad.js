@@ -25,7 +25,104 @@ class CreateAdPage {
             return;
         }
         
+        // Проверяем, режим редактирования или создания
+        const urlParams = new URLSearchParams(window.location.search);
+        const editId = urlParams.get('edit');
+        
+        if (editId) {
+            this.editMode = true;
+            this.editId = parseInt(editId);
+            this.loadAdForEdit();
+            // Изменяем текст кнопки
+            if (this.elements.submitBtn) {
+                this.elements.submitBtn.textContent = 'СОХРАНИТЬ ИЗМЕНЕНИЯ';
+            }
+        } else {
+            this.editMode = false;
+        }
+        
         this.attachEventListeners();
+    }
+
+    async loadAdForEdit() {
+        try {
+            console.log('📝 Загрузка объявления для редактирования:', this.editId);
+            const ad = await window.apiService.getAd(this.editId);
+            
+            // Заполняем форму данными объявления
+            this.populateForm(ad);
+            
+            // Изменяем заголовок страницы
+            const titleElement = document.querySelector('h1');
+            if (titleElement) {
+                titleElement.textContent = 'РЕДАКТИРОВАНИЕ ОБЪЯВЛЕНИЯ';
+            }
+            
+        } catch (error) {
+            console.error('❌ Ошибка загрузки объявления:', error);
+            alert('Не удалось загрузить объявление для редактирования');
+            window.location.href = 'my-ads.html';
+        }
+    }
+
+    populateForm(ad) {
+        // Заполняем все поля формы
+        if (this.elements.adType && ad.type) {
+            this.elements.adType.value = ad.type;
+            this.handleAdTypeChange(ad.type);
+        }
+        
+        const titleInput = document.getElementById('ad-title');
+        if (titleInput && ad.title) {
+            titleInput.value = ad.title;
+        }
+        
+        const descriptionInput = document.getElementById('ad-description');
+        if (descriptionInput && ad.description) {
+            descriptionInput.value = ad.description || '';
+        }
+        
+        if (this.elements.adPrice && ad.price) {
+            this.elements.adPrice.value = ad.price;
+        }
+        
+        const conditionInput = document.getElementById('ad-condition');
+        if (conditionInput && ad.condition) {
+            conditionInput.value = ad.condition;
+        }
+        
+        const sizeInput = document.getElementById('ad-size');
+        if (sizeInput && ad.size) {
+            sizeInput.value = ad.size;
+        }
+        
+        const brandInput = document.getElementById('ad-brand');
+        if (brandInput && ad.brand) {
+            brandInput.value = ad.brand;
+        }
+        
+        // Загружаем изображения
+        if (ad.images && ad.images.length > 0) {
+            this.uploadedImages = ad.images.map(img => ({
+                file_path: img,
+                preview_url: this.getImageUrl(img),
+                filename: img.split('/').pop()
+            }));
+            this.renderImagePreviews();
+        }
+    }
+
+    getImageUrl(imagePath) {
+        if (!imagePath) return '';
+        if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+            return imagePath;
+        }
+        const baseUrl = 'http://localhost:8000/static/';
+        let cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
+        if (cleanPath.startsWith('file_storage/')) {
+            cleanPath = cleanPath.replace('file_storage/', '');
+        }
+        return `${baseUrl}${cleanPath}`;
     }
 
     attachEventListeners() {
@@ -204,34 +301,36 @@ class CreateAdPage {
         }
 
         // Добавляем изображения - берем только пути к файлам, убираем дубликаты
-        const imagePaths = this.uploadedImages.map(img => img.file_path).filter(path => path); // Фильтруем пустые пути
-        formData.images = [...new Set(imagePaths)]; // Убираем дубликаты
-        console.log('📸 Отправляемые изображения:', formData.images);
-
+        formData.images = [...new Set(this.uploadedImages.map(img => img.file_path))];
+        
         try {
-            // Блокируем кнопку отправки
             if (this.elements.submitBtn) {
                 this.elements.submitBtn.disabled = true;
-                this.elements.submitBtn.textContent = 'Создание...';
+                this.elements.submitBtn.textContent = this.editMode ? 'Сохранение...' : 'Создание...';
             }
 
-            console.log('📤 Отправка объявления:', formData);
-            const createdAd = await window.apiService.createAd(formData);
-            
-            console.log('✅ Объявление создано:', createdAd);
-            alert('Объявление успешно создано!');
-            
-            // Перенаправляем на страницу "Мои объявления"
+            let result;
+            if (this.editMode) {
+                // Редактирование объявления
+                console.log('✏️ Обновление объявления:', this.editId, formData);
+                result = await window.apiService.updateAd(this.editId, formData);
+                alert('Объявление успешно обновлено!');
+            } else {
+                // Создание нового объявления
+                console.log('➕ Создание объявления:', formData);
+                result = await window.apiService.createAd(formData);
+                alert('Объявление успешно создано!');
+            }
+
+            // Перенаправляем на страницу моих объявлений
             window.location.href = 'my-ads.html';
-            
         } catch (error) {
-            console.error('❌ Ошибка создания объявления:', error);
-            alert(`Ошибка создания объявления: ${error.message || 'Неизвестная ошибка'}`);
+            console.error('❌ Ошибка:', error);
+            alert(`Ошибка: ${error.message || 'Не удалось сохранить объявление'}`);
         } finally {
-            // Разблокируем кнопку
             if (this.elements.submitBtn) {
                 this.elements.submitBtn.disabled = false;
-                this.elements.submitBtn.textContent = 'СОЗДАТЬ ОБЪЯВЛЕНИЕ';
+                this.elements.submitBtn.textContent = this.editMode ? 'СОХРАНИТЬ ИЗМЕНЕНИЯ' : 'СОЗДАТЬ ОБЪЯВЛЕНИЕ';
             }
         }
     }
