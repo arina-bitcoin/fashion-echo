@@ -83,28 +83,53 @@ class ApiService {
         });
     }
 
+    // async login(credentials) {
+    //     console.log('🔐 Logging in with:', { email: credentials.email, password: '***' });
+        
+    //     // // РАБОЧИЙ ФОРМАТ: POST с query parameters в URL
+    //     // const queryParams = new URLSearchParams({
+    //     //     email: credentials.email,
+    //     //     password: credentials.password
+    //     // }).toString();
+        
+    //     // const endpoint = `/auth/login?${queryParams}`;
+        
+    //     // return this.request(endpoint, {
+    //     //     method: 'POST'
+    //     // });
+    //     // ПРАВИЛЬНЫЙ ФОРМАТ: POST с JSON в теле запроса
+    //     return this.request('/auth/login', {
+    //         method: 'POST',
+    //         body: JSON.stringify({
+    //             email: credentials.email,
+    //             password: credentials.password
+    //         })
+    //     });
+    // }
+
     async login(credentials) {
         console.log('🔐 Logging in with:', { email: credentials.email, password: '***' });
         
-        // // РАБОЧИЙ ФОРМАТ: POST с query parameters в URL
-        // const queryParams = new URLSearchParams({
-        //     email: credentials.email,
-        //     password: credentials.password
-        // }).toString();
-        
-        // const endpoint = `/auth/login?${queryParams}`;
-        
-        // return this.request(endpoint, {
-        //     method: 'POST'
-        // });
-        // ПРАВИЛЬНЫЙ ФОРМАТ: POST с JSON в теле запроса
-        return this.request('/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({
-                email: credentials.email,
-                password: credentials.password
-            })
-        });
+        try {
+            const response = await this.request('/auth/login', {
+                method: 'POST',
+                body: JSON.stringify({
+                    email: credentials.email,
+                    password: credentials.password
+                })
+            });
+            
+            // === ИСПРАВЛЕНИЕ: Убедимся, что токен сохраняется ===
+            if (response.access_token) {
+                this.setToken(response.access_token);
+                console.log('✅ Token saved after login');
+            }
+            
+            return response;
+        } catch (error) {
+            console.error('❌ Login error:', error);
+            throw error;
+        }
     }
 
     async logout() {
@@ -293,7 +318,7 @@ class ApiService {
         return this.request(`/users/${userId}/public`);
     }
 
-    // Secondhand (секондхенды) methods
+    // Secondhand (секондхенды) methods - ДОБАВЛЕНЫ ИЗ НИЖНЕЙ ВЕРСИИ
     async getSecondhands(params = {}) {
         console.log('🏪 Getting secondhands with params:', params);
         const queryParams = new URLSearchParams();
@@ -350,7 +375,19 @@ class ApiService {
     }
 
     isAuthenticated() {
-        return !!this.token;
+    return !!this.token;
+    }
+
+    // 🔍 Поиск секонд-хендов
+    async searchSecondhand(params = {}) {
+        const query = new URLSearchParams(params).toString();
+        const endpoint = query ? `/secondhand/?${query}` : '/secondhand/';
+
+        console.log('🔍 searchSecondhand endpoint:', endpoint);
+
+        return this.request(endpoint, {
+            method: 'GET'
+        });
     }
 }
 

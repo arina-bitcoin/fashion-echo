@@ -304,7 +304,7 @@ from sqlalchemy import select, func, update, delete
 
 from Backend.app.core.database import get_db
 from Backend.app.core.security import verify_password, get_password_hash
-from Backend.app.dependencies import get_current_active_user
+from Backend.app.dependencies import get_current_user
 from Backend.app.models.user import User
 from Backend.app.schemas.user import UserResponse, UserUpdate, ChangePasswordRequest, UserWithAvatarResponse, UserPublicInfo
 from Backend.app.services.file_service import file_service
@@ -316,7 +316,7 @@ router = APIRouter()
 @router.get("/me", response_model=UserWithAvatarResponse)
 async def get_current_user_info(
     request: Request,
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Получение данных текущего пользователя"""
     user_data = UserWithAvatarResponse.model_validate(current_user)
@@ -329,28 +329,97 @@ async def get_current_user_info(
     
     return user_data
 
+# @router.put("/me", response_model=UserWithAvatarResponse)
+# async def update_current_user(
+#     user_data: UserUpdate,
+#     db: AsyncSession = Depends(get_db),
+#     current_user: User = Depends(get_current_active_user)
+# ):
+#     """Обновление профиля пользователя"""
+#     # Проверяем email на уникальность если он изменяется
+#     if user_data.email and user_data.email != current_user.email:
+#         result = await db.execute(select(User).filter(User.email == user_data.email))
+#         existing_user = result.scalar_one_or_none()
+#         if existing_user:
+#             raise HTTPException(
+#                 status_code=status.HTTP_400_BAD_REQUEST,
+#                 detail="Email already registered"
+#             )
+#
+#     # Обновление данных пользователя
+#     update_data = user_data.model_dump(exclude_unset=True)
+#
+#     # ИСПРАВЛЕНИЕ: используем асинхронное обновление
+#     stmt = (
+#         update(User)
+#         .where(User.id == current_user.id)
+#         .values(**update_data, updated_at=func.now())
+#         .execution_options(synchronize_session="fetch")
+#     )
+#     await db.execute(stmt)
+#     await db.commit()
+#
+#     """Код для синхронной сессии -- не подходит"""
+#     # update_data = user_data.dict(exclude_unset=True, exclude={"settings"})
+#
+#     # for field, value in update_data.items():
+#     #     setattr(current_user, field, value)
+#
+#     # # Обработка настроек отдельно
+#     # if user_data.settings is not None:
+#     #     # user_data.settings — это Pydantic-модель UserSettings
+#     #     # забираем только переданные значения
+#     #     new_settings = user_data.settings.dict(exclude_unset=True)
+#
+#     #     # текущие настройки из JSON-колонки
+#     #     current_settings = current_user.settings or {}
+#
+#     #     # новое поверх старого, чтобы theme="dark" перезаписала "light"
+#     #     merged_settings = {**current_settings, **new_settings}
+#
+#     #     current_user.settings = merged_settings
+#
+#     # db.commit()
+#     # db.refresh(current_user)
+#
+#     # return current_user
+#     """"""
+#
+#     # Получаем обновленного пользователя
+#     result = await db.execute(select(User).filter(User.id == current_user.id))
+#     updated_user = result.scalar_one()
+#
+#     # Формируем ответ с URL аватара
+#     response_data = UserWithAvatarResponse.model_validate(updated_user)
+#     if updated_user.avatar:
+#         response_data.avatar_url = file_service.get_avatar_url(updated_user.avatar)
+#
+#     return response_data
+
 @router.put("/me", response_model=UserWithAvatarResponse)
 async def update_current_user(
     user_data: UserUpdate,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Обновление профиля пользователя"""
-    # Проверяем email на уникальность если он изменяется
-    if user_data.email and user_data.email != current_user.email:
-        result = await db.execute(select(User).filter(User.email == user_data.email))
+
+    # Собираем только реально переданные поля
+    update_data = user_data.model_dump(exclude_unset=True)
+
+    # Если среди них есть email — проверяем на уникальность
+    new_email = update_data.get("email")
+    if new_email and new_email != current_user.email:
+        result = await db.execute(select(User).filter(User.email == new_email))
         existing_user = result.scalar_one_or_none()
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email already registered"
             )
-    
-    # Обновление данных пользователя
-    update_data = user_data.model_dump(exclude_unset=True)
-    
-    # ИСПРАВЛЕНИЕ: используем асинхронное обновление
+
+    # Обновление данных пользователя (асинхронно)
     stmt = (
         update(User)
         .where(User.id == current_user.id)
@@ -360,36 +429,10 @@ async def update_current_user(
     await db.execute(stmt)
     await db.commit()
 
-    """Код для синхронной сессии -- не подходит"""
-    # update_data = user_data.dict(exclude_unset=True, exclude={"settings"})
-    
-    # for field, value in update_data.items():
-    #     setattr(current_user, field, value)
-
-    # # Обработка настроек отдельно
-    # if user_data.settings is not None:
-    #     # user_data.settings — это Pydantic-модель UserSettings
-    #     # забираем только переданные значения
-    #     new_settings = user_data.settings.dict(exclude_unset=True)
-
-    #     # текущие настройки из JSON-колонки
-    #     current_settings = current_user.settings or {}
-
-    #     # новое поверх старого, чтобы theme="dark" перезаписала "light"
-    #     merged_settings = {**current_settings, **new_settings}
-
-    #     current_user.settings = merged_settings
-
-    # db.commit()
-    # db.refresh(current_user)
-    
-    # return current_user
-    """"""
-    
-    # Получаем обновленного пользователя
+    # Читаем обновлённого пользователя из БД
     result = await db.execute(select(User).filter(User.id == current_user.id))
     updated_user = result.scalar_one()
-    
+
     # Формируем ответ с URL аватара
     response_data = UserWithAvatarResponse.model_validate(updated_user)
     if updated_user.avatar:
@@ -399,12 +442,13 @@ async def update_current_user(
     
     return response_data
 
+
 @router.post("/me/avatar", response_model=UserWithAvatarResponse)
 async def upload_avatar(
     request: Request,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Загрузка аватара пользователя"""
     try:
@@ -445,7 +489,7 @@ async def upload_avatar(
 async def delete_avatar(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Удаление аватара пользователя"""
     if not current_user.avatar:
@@ -479,14 +523,21 @@ async def delete_avatar(
 
 @router.get("/me/ads", response_model=list[AdResponse])
 async def get_user_ads(
-        db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Вернуть список объявлений текущего пользователя.
     Используется в интеграционном тесте TestUsersIntegration.test_get_user_ads.
     """
-    stmt = select(Ad).filter(Ad.user_id == current_user.id)
+    from sqlalchemy.orm import selectinload
+    
+    stmt = (
+        select(Ad)
+        .options(selectinload(Ad.images))  # ← ДОБАВЬТЕ ЭТО
+        .filter(Ad.user_id == current_user.id)
+        .order_by(Ad.created_at.desc())
+    )
     result = await db.execute(stmt)
     ads = list(result.scalars().all())
     return ads
@@ -517,7 +568,7 @@ async def get_user_public_info(
 async def change_password(
     password_data: ChangePasswordRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     # Проверка текущего пароля
     if not verify_password(password_data.current_password, current_user.hashed_password):
@@ -542,7 +593,7 @@ async def change_password(
 @router.post("/me/deactivate")
 async def deactivate_account(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     stmt = (
         update(User)
@@ -558,7 +609,7 @@ async def deactivate_account(
 @router.delete("/me/delete")
 async def delete_account(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Полное удаление аккаунта пользователя"""
     user_id = current_user.id

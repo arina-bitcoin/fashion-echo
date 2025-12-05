@@ -4,16 +4,21 @@ from typing import List, Optional, Tuple
 import logging
 import math
 
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, or_, func
+
 from Backend.app.models.secondhand import Secondhand
 from Backend.app.schemas.secondhand import (
-    SecondhandCreate, 
-    SecondhandUpdate, 
+    SecondhandCreate,
+    SecondhandUpdate,
     SecondhandFilters,
-    MapClusterResponse
+    MapClusterResponse,
 )
+from Backend.app.core.cache import cache
 from Backend.app.services.map_service import MapService
 
 logger = logging.getLogger(__name__)
+SECONDHAND_CITY_CACHE_PREFIX = "secondhands:city:"
 
 
 class SecondhandService:
@@ -39,12 +44,9 @@ class SecondhandService:
         self, 
         db: AsyncSession, 
         filters: SecondhandFilters,
-        skip: int = 0, 
-        limit: int = 100
+        skip: int = 0,
+        limit: int = 100,
     ) -> Tuple[List[Secondhand], int]:
-        """
-        Получить список секондхендов с фильтрацией и пагинацией
-        """
         try:
             stmt = select(Secondhand)
             
@@ -86,7 +88,7 @@ class SecondhandService:
                 or_(
                     Secondhand.name.ilike(search_pattern),
                     Secondhand.address.ilike(search_pattern),
-                    Secondhand.description.ilike(search_pattern)
+                    Secondhand.description.ilike(search_pattern),
                 )
             )
         
@@ -100,9 +102,6 @@ class SecondhandService:
         sw_lat: float, 
         sw_lng: float
     ) -> List[Secondhand]:
-        """
-        Получить секондхенды в границах карты
-        """
         try:
             stmt = select(Secondhand).filter(
                 Secondhand.is_active == True,
@@ -124,9 +123,6 @@ class SecondhandService:
         lng: float, 
         radius_km: float = 5
     ) -> List[Secondhand]:
-        """
-        Поиск секондхендов в радиусе от точки (упрощенная версия)
-        """
         try:
             # Простая прямоугольная область вокруг точки
             # В реальном проекте используем PostGIS или специальные расширения
@@ -152,7 +148,6 @@ class SecondhandService:
         Создать новый секондхенд
         """
         try:
-            # Если координаты не указаны, пытаемся геокодировать адрес
             if not secondhand_data.latitude or not secondhand_data.longitude:
                 latitude, longitude = self.map_service.geocode_address(
                     f"{secondhand_data.address}, {secondhand_data.city}"
@@ -161,7 +156,6 @@ class SecondhandService:
                 latitude = secondhand_data.latitude
                 longitude = secondhand_data.longitude
 
-            # Создаем объект секондхенда
             db_secondhand = Secondhand(
                 name=secondhand_data.name,
                 address=secondhand_data.address,
@@ -173,16 +167,15 @@ class SecondhandService:
                 website=secondhand_data.website,
                 opening_hours=secondhand_data.opening_hours,
                 description=secondhand_data.description,
-                is_active=True
+                is_active=True,
             )
-            
+
             db.add(db_secondhand)
             await db.commit()
             await db.refresh(db_secondhand)
             
             logger.info(f"Created secondhand: {db_secondhand.name} (ID: {db_secondhand.id})")
             return db_secondhand
-            
         except Exception as e:
             await db.rollback()
             logger.error(f"Error creating secondhand: {e}")
@@ -194,9 +187,6 @@ class SecondhandService:
         secondhand_id: int, 
         secondhand_data: SecondhandUpdate
     ) -> Optional[Secondhand]:
-        """
-        Обновить информацию о секондхенде
-        """
         try:
             db_secondhand = await self.get_secondhand_by_id(db, secondhand_id)
             if not db_secondhand:
@@ -221,7 +211,6 @@ class SecondhandService:
             
             logger.info(f"Updated secondhand ID: {secondhand_id}")
             return db_secondhand
-            
         except Exception as e:
             await db.rollback()
             logger.error(f"Error updating secondhand {secondhand_id}: {e}")
@@ -241,22 +230,20 @@ class SecondhandService:
             
             logger.info(f"Soft deleted secondhand ID: {secondhand_id}")
             return True
-            
         except Exception as e:
             await db.rollback()
             logger.error(f"Error deleting secondhand {secondhand_id}: {e}")
             return False
 
-    def get_cities(self, db: Session) -> List[str]:
-        """
-        Получить список всех городов, где есть секондхенды
-        """
+    async def get_cities(self, db: AsyncSession) -> List[str]:
         try:
-            cities = db.query(Secondhand.city).filter(
-                Secondhand.is_active == True
-            ).distinct().all()
-            
-            return [city[0] for city in cities if city[0]]
+            result = await db.execute(
+                select(Secondhand.city)
+                .where(Secondhand.is_active.is_(True))
+                .distinct()
+            )
+            cities_rows = result.all()
+            return [row[0] for row in cities_rows if row[0]]
         except Exception as e:
             logger.error(f"Error getting cities: {e}")
             return []
@@ -301,32 +288,27 @@ class SecondhandService:
         return self._cluster_points(points, zoom)
 
     def _cell_size_for_zoom(self, zoom: int) -> float:
-        """
-        Подбираем размер "сетки" (в градусах) для кластеризации в зависимости от zoom.
-        Чем меньше zoom — тем крупнее ячейки.
-        """
         if zoom <= 5:
-            return 1.0       # ~110 км по широте
+            return 1.0
         elif zoom <= 8:
-            return 0.5       # ~55 км
+            return 0.5
         elif zoom <= 10:
-            return 0.2       # ~22 км
+            return 0.2
         elif zoom <= 12:
-            return 0.1       # ~11 км
+            return 0.1
         elif zoom <= 14:
-            return 0.05      # ~5 км
+            return 0.05
         else:
-            return 0.02      # ~2 км
+            return 0.02
 
-    def _cluster_points(self, points: List[Secondhand], zoom: int) -> List[MapClusterResponse]:
-        """
-        Простая grid-кластеризация: делим пространство на ячейки.
-        В каждой ячейке считаем среднюю координату и список id.
-        """
+    def _cluster_points(
+        self,
+        points: List[Secondhand],
+        zoom: int,
+    ) -> List[MapClusterResponse]:
         if not points:
             return []
 
-        # На очень большом zoom можно не кластеризовать, а отдавать точки как есть
         if zoom >= 16:
             return [
                 MapClusterResponse(
@@ -340,7 +322,6 @@ class SecondhandService:
             ]
 
         cell_size = self._cell_size_for_zoom(zoom)
-
         clusters: dict[tuple[int, int], dict] = {}
 
         for p in points:
@@ -378,3 +359,39 @@ class SecondhandService:
 
         return result
 
+    async def get_secondhands_by_city_cached(
+            self,
+            db: AsyncSession,
+            city: str,
+    ) -> list[Secondhand]:
+        """
+        Часто используемый кейс: активные секонды в городе.
+        Если в кэше есть — берём из кэша, иначе — из БД и кладём в кэш.
+        """
+
+        cache_key = f"{SECONDHAND_CITY_CACHE_PREFIX}{city}"
+
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        result = await db.execute(
+            select(Secondhand).where(
+                and_(
+                    Secondhand.city == city,
+                    Secondhand.is_active.is_(True),
+                )
+            )
+        )
+        secondhands: list[Secondhand] = result.scalars().all()
+
+        cache.set(cache_key, secondhands)
+        return secondhands
+
+    @staticmethod
+    def invalidate_secondhand_cache() -> None:
+        """
+        Вызываем после create/update/delete,
+        чтобы кэш не содержал устаревших данных.
+        """
+        cache.clear_prefix(SECONDHAND_CITY_CACHE_PREFIX)

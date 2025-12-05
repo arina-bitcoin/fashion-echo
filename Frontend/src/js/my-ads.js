@@ -107,10 +107,14 @@ class MyAdsPage {
         const imageUrl = this.getImageUrl(ad);
         const placeholderUrl = this.getPlaceholderImage();
         
-        // Форматируем цену
-        const priceText = ad.price && ad.price > 0 
-            ? `${Math.round(ad.price)} ₽` 
-            : 'Обмен';
+        let priceText;
+        if (ad.type === 'buy') {
+            priceText = 'Запрос на покупку';
+        } else if (ad.price && ad.price > 0) {
+            priceText = `${Math.round(ad.price)} ₽`;
+        } else {
+            priceText = 'Обмен';
+        }
         
         // Статус активности
         const statusClass = ad.is_active ? 'active' : 'inactive';
