@@ -50,22 +50,3 @@ async def create_db_and_tables():
     """Создание всех таблиц в базе данных"""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-
-"""Синхронная сессия -- не подходит"""
-# # Синхронная сессия
-# SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# # Базовый класс моделей
-# Base = declarative_base()
-
-
-# def get_db():
-#     """
-#     Dependency для FastAPI — отдаёт sync-сессию.
-#     """
-#     db = SessionLocal()
-#     try:
-#         yield db
-#     finally:
-#         db.close()
-""""""

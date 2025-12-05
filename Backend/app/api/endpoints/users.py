@@ -1,306 +1,15 @@
-# # from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-# # from sqlalchemy.orm import Session
-# # from sqlalchemy import func
-# # from Backend.app.core.database import get_db
-# # from Backend.app.core.security import verify_password, get_password_hash
-# # from Backend.app.dependencies import get_current_active_user
-# # from Backend.app.models.user import User
-# # from Backend.app.schemas.user import UserResponse, UserUpdate, ChangePasswordRequest, UserWithAvatarResponse
-# # from Backend.app.services.file_service import file_service
-
-# # router = APIRouter()
-
-# # @router.get("/me", response_model=UserResponse)
-# # async def get_current_user_info(
-# #     current_user: User = Depends(get_current_active_user)
-# # ):
-# #     """Получение данных текущего пользователя"""
-# #     user_data = UserWithAvatarResponse.from_orm(current_user)
-    
-# #     # Добавляем URL аватара
-# #     if current_user.avatar:
-# #         user_data.avatar_url = file_service.get_avatar_url(current_user.avatar)
-    
-# #     return user_data
-
-
-# # @router.put("/me", response_model=UserWithAvatarResponse)
-# # async def update_current_user(
-# #     user_data: UserUpdate,
-# #     db: Session = Depends(get_db),
-# #     current_user: User = Depends(get_current_active_user)
-# # ):
-# #     """Обновление профиля пользователя"""
-# #     # Проверяем email на уникальность если он изменяется
-# #     if user_data.email and user_data.email != current_user.email:
-# #         existing_user = db.query(User).filter(User.email == user_data.email).first()
-# #         if existing_user:
-# #             raise HTTPException(
-# #                 status_code=status.HTTP_400_BAD_REQUEST,
-# #                 detail="Email already registered"
-# #             )
-    
-# #     # Обновление данных пользователя
-# #     update_data = user_data.dict(exclude_unset=True)
-    
-# #     for field, value in update_data.items():
-# #         setattr(current_user, field, value)
-    
-# #     current_user.updated_at = func.now()
-# #     db.commit()
-# #     db.refresh(current_user)
-    
-# #     # Формируем ответ с URL аватара
-# #     response_data = UserWithAvatarResponse.from_orm(current_user)
-# #     if current_user.avatar:
-# #         response_data.avatar_url = file_service.get_avatar_url(current_user.avatar)
-    
-# #     return response_data
-
-
-# # @router.post("/me/avatar", response_model=UserWithAvatarResponse)
-# # async def upload_avatar(
-# #     file: UploadFile = File(...),
-# #     db: Session = Depends(get_db),
-# #     current_user: User = Depends(get_current_active_user)
-# # ):
-# #     """Загрузка аватара пользователя"""
-# #     try:
-# #         # Удаляем старый аватар если есть
-# #         if current_user.avatar:
-# #             file_service.delete_avatar(current_user.avatar)
-        
-# #         # Сохраняем новый аватар
-# #         avatar_path = await file_service.save_avatar(file, current_user.id)
-        
-# #         # Обновляем пользователя в БД
-# #         current_user.avatar = avatar_path
-# #         current_user.updated_at = func.now()
-# #         db.commit()
-# #         db.refresh(current_user)
-        
-# #         # Формируем ответ
-# #         response_data = UserWithAvatarResponse.from_orm(current_user)
-# #         response_data.avatar_url = file_service.get_avatar_url(avatar_path)
-        
-# #         return response_data
-        
-# #     except Exception as e:
-# #         raise HTTPException(
-# #             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-# #             detail=f"Error uploading avatar: {str(e)}"
-# #         )
-
-# # @router.delete("/me/avatar", response_model=UserWithAvatarResponse)
-# # async def delete_avatar(
-# #     db: Session = Depends(get_db),
-# #     current_user: User = Depends(get_current_active_user)
-# # ):
-# #     """Удаление аватара пользователя"""
-# #     if not current_user.avatar:
-# #         raise HTTPException(
-# #             status_code=status.HTTP_404_NOT_FOUND,
-# #             detail="Avatar not found"
-# #         )
-    
-# #     # Удаляем файл
-# #     file_service.delete_avatar(current_user.avatar)
-    
-# #     # Обновляем пользователя в БД
-# #     current_user.avatar = None
-# #     current_user.updated_at = func.now()
-# #     db.commit()
-# #     db.refresh(current_user)
-    
-# #     # Формируем ответ
-# #     response_data = UserWithAvatarResponse.from_orm(current_user)
-# #     return response_data
-
-
-# # @router.post("/change-password")
-# # async def change_password(
-# #     password_data: ChangePasswordRequest,
-# #     db: Session = Depends(get_db),
-# #     current_user: User = Depends(get_current_active_user)
-# # ):
-# #     # Проверка текущего пароля
-# #     if not verify_password(password_data.current_password, current_user.hashed_password):
-# #         raise HTTPException(
-# #             status_code=status.HTTP_400_BAD_REQUEST,
-# #             detail="Current password is incorrect"
-# #         )
-    
-# #     # Установка нового пароля
-# #     current_user.hashed_password = get_password_hash(password_data.new_password)
-# #     current_user.updated_at = func.now()
-# #     db.commit()
-    
-# #     return {"message": "Password updated successfully"}
-
-# # @router.post("/me/deactivate")
-# # async def deactivate_account(
-# #     db: Session = Depends(get_db),
-# #     current_user: User = Depends(get_current_active_user)
-# # ):
-# #     current_user.is_active = False
-# #     current_user.updated_at = func.now()
-# #     db.commit()
-    
-# #     return {"message": "Account deactivated successfully"}
-
-
-
-
-
-
-
-
-
-
-
-
-
-# from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-# from sqlalchemy.orm import Session
-# from Backend.app.core.database import get_db
-# from Backend.app.dependencies import get_current_active_user
-# from Backend.app.models.user import User
-# from Backend.app.schemas.user import UserResponse, UserUpdate, ChangePasswordRequest, UserWithAvatarResponse
-# from Backend.app.services.user_service import UserService
-# from Backend.app.services.file_service import file_service
-
-# router = APIRouter()
-
-# @router.get("/me", response_model=UserWithAvatarResponse)
-# async def get_current_user_info(
-#     current_user: User = Depends(get_current_active_user)
-# ):
-#     """Получение данных текущего пользователя"""
-#     user_data = UserWithAvatarResponse.from_orm(current_user)
-    
-#     # Добавляем URL аватара
-#     if current_user.avatar:
-#         user_data.avatar_url = file_service.get_avatar_url(current_user.avatar)
-    
-#     return user_data
-
-# @router.put("/me", response_model=UserWithAvatarResponse)
-# async def update_current_user(
-#     user_data: UserUpdate,
-#     db: Session = Depends(get_db),
-#     current_user: User = Depends(get_current_active_user)
-# ):
-#     """Обновление профиля пользователя"""
-#     user_service = UserService(db)
-#     try:
-#         user = user_service.update_user_profile(current_user.id, user_data)
-        
-#         # Формируем ответ с URL аватара
-#         response_data = UserWithAvatarResponse.from_orm(user)
-#         if user.avatar:
-#             response_data.avatar_url = file_service.get_avatar_url(user.avatar)
-        
-#         return response_data
-#     except ValueError as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail=str(e)
-#         )
-
-# @router.post("/me/avatar", response_model=UserWithAvatarResponse)
-# async def upload_avatar(
-#     file: UploadFile = File(...),
-#     db: Session = Depends(get_db),
-#     current_user: User = Depends(get_current_active_user)
-# ):
-#     """Загрузка аватара пользователя"""
-#     user_service = UserService(db)
-#     try:
-#         user = await user_service.upload_avatar(current_user.id, file)
-        
-#         # Формируем ответ
-#         response_data = UserWithAvatarResponse.from_orm(user)
-#         response_data.avatar_url = file_service.get_avatar_url(user.avatar)
-        
-#         return response_data
-#     except ValueError as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail=str(e)
-#         )
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#             detail=f"Error uploading avatar: {str(e)}"
-#         )
-
-# @router.delete("/me/avatar", response_model=UserWithAvatarResponse)
-# async def delete_avatar(
-#     db: Session = Depends(get_db),
-#     current_user: User = Depends(get_current_active_user)
-# ):
-#     """Удаление аватара пользователя"""
-#     user_service = UserService(db)
-#     try:
-#         user = user_service.delete_avatar(current_user.id)
-        
-#         # Формируем ответ
-#         response_data = UserWithAvatarResponse.from_orm(user)
-#         return response_data
-#     except ValueError as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND,
-#             detail=str(e)
-#         )
-
-# @router.post("/change-password")
-# async def change_password(
-#     password_data: ChangePasswordRequest,
-#     db: Session = Depends(get_db),
-#     current_user: User = Depends(get_current_active_user)
-# ):
-#     """Смена пароля"""
-#     user_service = UserService(db)
-#     try:
-#         user_service.change_password(current_user.id, password_data)
-#         return {"message": "Password updated successfully"}
-#     except ValueError as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail=str(e)
-#         )
-
-# @router.post("/me/deactivate")
-# async def deactivate_account(
-#     db: Session = Depends(get_db),
-#     current_user: User = Depends(get_current_active_user)
-# ):
-#     """Деактивация аккаунта"""
-#     user_service = UserService(db)
-#     try:
-#         user_service.deactivate_user(current_user.id)
-#         return {"message": "Account deactivated successfully"}
-#     except ValueError as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail=str(e)
-#         )
-
-
-
-
-
-
-
-
-
-
-
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request
+from fastapi import (
+    APIRouter, 
+    Depends, 
+    HTTPException, 
+    status, 
+    UploadFile, 
+    File, 
+    Request, 
+    Query
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update, delete
-# from sqlalchemy.orm import Session
-# from typing import List
 
 from Backend.app.core.database import get_db
 from Backend.app.core.security import verify_password, get_password_hash
@@ -308,7 +17,7 @@ from Backend.app.dependencies import get_current_user
 from Backend.app.models.user import User
 from Backend.app.schemas.user import UserResponse, UserUpdate, ChangePasswordRequest, UserWithAvatarResponse, UserPublicInfo
 from Backend.app.services.file_service import file_service
-from Backend.app.schemas.ad import AdResponse
+from Backend.app.schemas.ad import AdResponse, AdStatus
 from Backend.app.models.ad import Ad
 
 router = APIRouter()
@@ -328,73 +37,6 @@ async def get_current_user_info(
         user_data.avatar_url = None
     
     return user_data
-
-# @router.put("/me", response_model=UserWithAvatarResponse)
-# async def update_current_user(
-#     user_data: UserUpdate,
-#     db: AsyncSession = Depends(get_db),
-#     current_user: User = Depends(get_current_active_user)
-# ):
-#     """Обновление профиля пользователя"""
-#     # Проверяем email на уникальность если он изменяется
-#     if user_data.email and user_data.email != current_user.email:
-#         result = await db.execute(select(User).filter(User.email == user_data.email))
-#         existing_user = result.scalar_one_or_none()
-#         if existing_user:
-#             raise HTTPException(
-#                 status_code=status.HTTP_400_BAD_REQUEST,
-#                 detail="Email already registered"
-#             )
-#
-#     # Обновление данных пользователя
-#     update_data = user_data.model_dump(exclude_unset=True)
-#
-#     # ИСПРАВЛЕНИЕ: используем асинхронное обновление
-#     stmt = (
-#         update(User)
-#         .where(User.id == current_user.id)
-#         .values(**update_data, updated_at=func.now())
-#         .execution_options(synchronize_session="fetch")
-#     )
-#     await db.execute(stmt)
-#     await db.commit()
-#
-#     """Код для синхронной сессии -- не подходит"""
-#     # update_data = user_data.dict(exclude_unset=True, exclude={"settings"})
-#
-#     # for field, value in update_data.items():
-#     #     setattr(current_user, field, value)
-#
-#     # # Обработка настроек отдельно
-#     # if user_data.settings is not None:
-#     #     # user_data.settings — это Pydantic-модель UserSettings
-#     #     # забираем только переданные значения
-#     #     new_settings = user_data.settings.dict(exclude_unset=True)
-#
-#     #     # текущие настройки из JSON-колонки
-#     #     current_settings = current_user.settings or {}
-#
-#     #     # новое поверх старого, чтобы theme="dark" перезаписала "light"
-#     #     merged_settings = {**current_settings, **new_settings}
-#
-#     #     current_user.settings = merged_settings
-#
-#     # db.commit()
-#     # db.refresh(current_user)
-#
-#     # return current_user
-#     """"""
-#
-#     # Получаем обновленного пользователя
-#     result = await db.execute(select(User).filter(User.id == current_user.id))
-#     updated_user = result.scalar_one()
-#
-#     # Формируем ответ с URL аватара
-#     response_data = UserWithAvatarResponse.model_validate(updated_user)
-#     if updated_user.avatar:
-#         response_data.avatar_url = file_service.get_avatar_url(updated_user.avatar)
-#
-#     return response_data
 
 @router.put("/me", response_model=UserWithAvatarResponse)
 async def update_current_user(
@@ -523,6 +165,7 @@ async def delete_avatar(
 
 @router.get("/me/ads", response_model=list[AdResponse])
 async def get_user_ads(
+    status: str = Query("all", description="Статус объявлений: active, inactive, all"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -538,8 +181,25 @@ async def get_user_ads(
         .filter(Ad.user_id == current_user.id)
         .order_by(Ad.created_at.desc())
     )
+
+    # Фильтр по статусу
+    if status == "active":
+        stmt = stmt.filter(Ad.status == AdStatus.ACTIVE)
+    elif status == "inactive":
+        stmt = stmt.filter(Ad.status == AdStatus.INACTIVE)
+    # Если status == "all" или что-то другое, показываем все
+    
     result = await db.execute(stmt)
     ads = list(result.scalars().all())
+
+    # Преобразуем images в URL
+    for ad in ads:
+        if hasattr(ad, 'images') and ad.images:
+            # Преобразуем AdImage объекты в URL строки
+            ad.images = [f"http://localhost:8000/static/{img.file_path}" for img in ad.images]
+        else:
+            ad.images = []
+
     return ads
 
 

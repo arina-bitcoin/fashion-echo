@@ -117,8 +117,9 @@ class MyAdsPage {
         }
         
         // Статус активности
-        const statusClass = ad.is_active ? 'active' : 'inactive';
-        const statusText = ad.is_active ? 'Активно' : 'Неактивно';
+        const isActive = ad.status === 'active';
+        const statusClass = isActive ? 'active' : 'inactive';
+        const statusText = isActive ? 'Активно' : 'Неактивно';
 
         card.innerHTML = `
             <div class="ad-card-image">
@@ -143,8 +144,8 @@ class MyAdsPage {
                     <button class="btn btn-danger btn-small" onclick="window.myAdsPage.deleteAd(${ad.id})" style="background: #ef4444; color: white;">
                         Удалить
                     </button>
-                    <button class="btn btn-primary btn-small" onclick="window.myAdsPage.toggleAdStatus(${ad.id}, ${!ad.is_active})">
-                        ${ad.is_active ? 'Деактивировать' : 'Активировать'}
+                    <button class="btn btn-primary btn-small" onclick="window.myAdsPage.toggleAdStatus(${ad.id}, ${ad.status !== 'active'})">
+                    ${ad.status === 'active' ? 'Деактивировать' : 'Активировать'}
                     </button>
                 </div>
             </div>
@@ -153,15 +154,23 @@ class MyAdsPage {
         return card;
     }
 
-    async toggleAdStatus(adId, newStatus) {
+    async toggleAdStatus(adId, activate) {
+        console.log(`🔄 Изменение статуса объявления ${adId} на ${activate ? 'активно' : 'неактивно'}`);
+        
         try {
-            console.log(`🔄 Изменение статуса объявления ${adId} на ${newStatus ? 'активно' : 'неактивно'}`);
-            await window.apiService.updateAd(adId, { is_active: newStatus });
-            this.showSuccess('Статус объявления успешно изменен');
+            // Используем правильные эндпоинты
+            const endpoint = activate ? `/ads/${adId}/activate` : `/ads/${adId}/deactivate`;
+            
+            const response = await apiService.request(endpoint, {
+                method: 'POST'
+            });
+            
+            console.log(`✅ Статус объявления ${adId} изменен`);
             await this.loadAds();
+            return response;
         } catch (error) {
             console.error('❌ Ошибка изменения статуса:', error);
-            this.showError('Не удалось изменить статус объявления');
+            throw error;
         }
     }
 

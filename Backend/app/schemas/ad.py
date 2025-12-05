@@ -50,22 +50,6 @@ class AdCreate(AdBase):
         return v
 
 class AdUpdate(BaseModel):
-<<<<<<< HEAD
-    type: Optional[AdType] = None
-    title: Optional[str] = None
-    description: Optional[str] = None
-    price: Optional[float] = None
-    is_active: Optional[bool] = None
-    condition: Optional[str] = None
-    main_categories: Optional[List[str]] = None
-    subcategories: Optional[List[str]] = None
-    seasons: Optional[List[str]] = None
-    size: Optional[str] = None
-    brand: Optional[str] = None
-    colors: Optional[List[str]] = None
-    images: Optional[List[str]] = None
-    category: Optional[str] = None  # Для обратной совместимости
-=======
     title: Optional[str] = Field(None, min_length=1, max_length=200)
     description: Optional[str] = Field(None, max_length=5000)
     price: Optional[float] = Field(None, ge=0)
@@ -81,7 +65,6 @@ class AdUpdate(BaseModel):
     brand: Optional[str] = None
     # === ИЗМЕНЕНИЕ: Убираем is_active, добавляем status ===
     status: Optional[AdStatus] = None
->>>>>>> e55ae645be148cf1b0ffa1f6267a841ae77f241b
 
 class AdResponse(AdBase):
     id: int
@@ -104,7 +87,7 @@ class AdResponse(AdBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     
-    images: Optional[list[ImageUploadResponse]] = []
+    images: Optional[list[str]] = Field(default_factory=list, description="URL-ы изображений")
     user: Optional[UserResponseSimple] = None
     is_favorite: Optional[bool] = None
     
@@ -124,11 +107,15 @@ class AdStatus(str, Enum):
     INACTIVE = "inactive"
     ALL = "all"
 
+class AdStatusResponse(BaseModel):
+    message: str
+    ad_id: int
+    status: str
+
 # ---------- Enum для состояний одежды ----------
 class Condition(str, Enum):
     """Состояние одежды"""
     NEW = "new"                # Новая с биркой
-    LIKE_NEW = "like_new"      # Как новая
     EXCELLENT = "excellent"    # Отличное состояние
     GOOD = "good"              # Хорошее состояние
     SATISFACTORY = "satisfactory" # Удовлетворительное

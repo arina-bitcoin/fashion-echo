@@ -69,28 +69,10 @@ class UserResponse(UserBase):
     id: int
     is_active: bool
     is_verified: bool
+    is_admin: bool = False
     created_at: datetime
     last_login: Optional[datetime] = None
     settings: Optional[UserSettings] = None
-
-    # @model_validator(mode='before')
-    # @classmethod
-    # def convert_name_to_full_name(cls, data):
-    #     """Конвертирует поле 'name' из БД в 'full_name' в схеме"""
-    #     if isinstance(data, dict):
-    #         # Если в данных есть 'name', но нет 'full_name' - копируем значение
-    #         if 'name' in data and ('full_name' not in data or data['full_name'] is None):
-    #             data['full_name'] = data['name']
-    #         # Также сохраняем обратную совместимость: если передали full_name, сохраняем в name
-    #         if 'full_name' in data and ('name' not in data or data['name'] is None):
-    #             data['name'] = data['full_name']
-    #     elif hasattr(data, 'name'):
-    #         # Для объектов SQLAlchemy
-    #         if not hasattr(data, 'full_name') or data.full_name is None:
-    #             data.full_name = data.name
-    #         if data.name is None and hasattr(data, 'full_name'):
-    #             data.name = data.full_name
-    #     return data
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -122,19 +104,4 @@ class UserPublicInfo(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
 
-    # @model_validator(mode='before')
-    # @classmethod
-    # def convert_name_to_full_name(cls, data):
-    #     if isinstance(data, dict):
-    #         if 'name' in data and ('full_name' not in data or data['full_name'] is None):
-    #             data['full_name'] = data['name']
-    #         if 'full_name' in data and ('name' not in data or data['name'] is None):
-    #             data['name'] = data['full_name']
-    #     elif hasattr(data, 'name'):
-    #         if not hasattr(data, 'full_name') or data.full_name is None:
-    #             data.full_name = data.name
-    #         if data.name is None and hasattr(data, 'full_name'):
-    #             data.name = data.full_name
-    #     return data
-    
     model_config = ConfigDict(from_attributes=True)

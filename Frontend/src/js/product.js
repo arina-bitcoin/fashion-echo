@@ -343,10 +343,14 @@ class ProductPage {
 
         // Формируем пункты состояния
         const conditionPoints = [
-            `СОСТОЯНИЕ: ${conditionText.toUpperCase()}.`,
-            this.adData.brand ? `БРЕНД: ${this.adData.brand.toUpperCase()}.` : null,
-            this.adData.size ? `РАЗМЕР: ${this.adData.size.toUpperCase()}.` : null,
-            this.adData.category ? `КАТЕГОРИЯ: ${this.getCategoryText(this.adData.category).toUpperCase()}.` : null
+            `СОСТОЯНИЕ: ${conditionText.toUpperCase()}`,
+
+            this.adData.main_category ? `КАТЕГОРИЯ: ${this.getCategoryText(this.adData.main_category).toUpperCase()}.` : null,
+            this.adData.sub_category ? `ПОДКАТЕГОРИЯ: ${this.getSubCategoryText(this.adData.sub_category).toUpperCase()}.` : null,
+            this.adData.season ? `СЕЗОН: ${this.getSeasonText(this.adData.season).toUpperCase()}.` : null,
+
+            this.adData.brand ? `БРЕНД: ${this.adData.brand.toUpperCase()}` : null,
+            this.adData.size ? `РАЗМЕР: ${this.adData.size.toUpperCase()}` : null,
         ].filter(Boolean);
 
         // Если нет информации о состоянии, используем базовую информацию
@@ -363,22 +367,57 @@ class ProductPage {
     }
 
     getConditionText(condition) {
+        if (!condition) return 'НЕ УКАЗАНО';
+        
+        const conditionLower = condition.toLowerCase();
+        
         const conditionMap = {
-            'new': 'НОВОЕ',
-            'like_new': 'ОТЛИЧНОЕ (КАК НОВОЕ)',
+            'new': 'НОВОЕ', 
+            'excellent': 'ОТЛИЧНОЕ',
             'good': 'ХОРОШЕЕ',
-            'satisfactory': 'УДОВЛЕТВОРИТЕЛЬНОЕ'
+            'satisfactory': 'УДОВЛЕТВОРИТЕЛЬНОЕ',
+            'needs_repair': 'ТРЕБУЕТ РЕМОНТА'
         };
-        return conditionMap[condition] || condition || 'НЕ УКАЗАНО';
+        
+        return conditionMap[conditionLower] || condition.toUpperCase();
     }
 
     getCategoryText(category) {
         const categoryMap = {
-            'clothing': 'Одежда',
-            'shoes': 'Обувь',
-            'accessories': 'Аксессуары'
+            'men': 'Мужская одежда',
+            'women': 'Женская одежда',
+            'kids': 'Детская одежда',
+            'unisex': 'Унисекс',
+            'baby': 'Детская (0-3 лет)'
         };
         return categoryMap[category] || category;
+    }
+
+    getSubCategoryText(subcategory) {
+        const subcategoryMap = {
+            'formal': 'Деловая/формальная',
+            'casual': 'Повседневная',
+            'sports': 'Спортивная',
+            'outerwear': 'Верхняя одежда',
+            'underwear': 'Нижнее белье',
+            'swimwear': 'Пляжная одежда',
+            'accessories': 'Аксессуары',
+            'shoes': 'Обувь',
+            'bags': 'Сумки',
+            'jewelry': 'Украшения'
+        };
+        return subcategoryMap[subcategory] || subcategory;
+    }
+
+    getSeasonText(season) {
+        const seasonMap = {
+            'winter': 'Зима',
+            'spring': 'Весна',
+            'summer': 'Лето',
+            'autumn': 'Осень',
+            'all_season': 'Всесезонная'
+        };
+        return seasonMap[season] || season;
     }
 
     async showContacts() {

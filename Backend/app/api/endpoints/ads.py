@@ -3,7 +3,7 @@ import uuid
 import aiofiles
 import aiofiles.os
 from typing import Optional, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import (
     APIRouter,
@@ -14,8 +14,7 @@ from fastapi import (
     File,
     UploadFile,
     Form,
-    Body,
-    Query
+    Body
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -27,6 +26,7 @@ from Backend.app.models.user import User
 from Backend.app.models.ad import Ad
 from Backend.app.schemas.ad import (
     AdResponse, 
+    AdStatusResponse,
     AdCreate, 
     AdUpdate,
     AdStatus,
@@ -39,7 +39,6 @@ from Backend.app.schemas.ad import (
 )
 from Backend.app.services.ad_service import AdService
 from Backend.app.utils.validators import validate_image_file
-# from Backend.app.utils.file_upload import save_uploaded_file
 
 router = APIRouter()
 
@@ -52,6 +51,7 @@ async def get_ads(
     status: Optional[str] = Query(None, description="Статус объявления: active, inactive"),
     type: Optional[str] = Query(None, regex="^(sell|buy|exchange)$"),
     main_category: Optional[str] = Query(None, description="Основная категория"),
+    main_categories: Optional[list[str]] = Query(None, description="Основные категории (массив)"),
     sub_category: Optional[str] = Query(None, description="Подкатегория"),
     season: Optional[str] = Query(None, description="Сезон"),
     condition: Optional[str] = Query(None, description="Состояние товара"),
@@ -59,7 +59,7 @@ async def get_ads(
     max_price: Optional[float] = Query(None, ge=0, description="Максимальная цена"),
     size: Optional[str] = Query(None, description="Размер"),
     color: Optional[str] = Query(None, description="Цвет"),
-    query: Optional[str] = Query(None, description="Текстовый поиск"),
+    search: Optional[str] = Query(None, description="Текстовый поиск"),
     sort: Optional[str] = Query("newest", description="Сортировка: newest, oldest, price_asc, price_desc, popular"),
     db: AsyncSession = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user_optional)
@@ -69,6 +69,8 @@ async def get_ads(
     # Для неавторизованных пользователей показываем только активные
     if not current_user:
         status = "active"
+
+    categories_to_filter = main_categories if main_categories is not None else ([main_category] if main_category else None)
     
     return await AdService.get_ads(
         db=db,
@@ -76,7 +78,7 @@ async def get_ads(
         limit=limit,
         status=status,
         type=type,
-        main_category=main_category,
+        main_category=categories_to_filter,
         sub_category=sub_category,
         season=season,
         condition=condition,
@@ -84,7 +86,7 @@ async def get_ads(
         max_price=max_price,
         size=size,
         color=color,
-        query=query,
+        search=search,
         sort=sort
     )
 
@@ -137,69 +139,6 @@ async def search_ads(
         limit=limit
     )
 
-# @router.post("/search/advanced", response_model=dict[str, Any])
-# async def advanced_search(
-#     search_data: AdSearch,
-#     db: AsyncSession = Depends(get_db),
-#     current_user: Optional[User] = Depends(get_current_user_optional)
-# ):
-#     """
-#     Расширенный поиск объявлений со всеми фильтрами и сортировками
-    
-#     Примеры запросов:
-    
-#     1. Поиск мужских джинсов до 5000 руб:
-#     {
-#         "query": "джинсы",
-#         "max_price": 5000,
-#         "categories": {
-#             "main_categories": ["mens"],
-#             "subcategories": ["casual"]
-#         },
-#         "sorting": {
-#             "sort_by": "price_asc"
-#         }
-#     }
-    
-#     2. Поиск женских платьев для лета:
-#     {
-#         "categories": {
-#             "main_categories": ["womens"],
-#             "subcategories": ["formal", "casual"],
-#             "seasons": ["summer"]
-#         },
-#         "sorting": {
-#             "sort": {
-#                 "primary": "popular",
-#                 "secondary": "newest"
-#             }
-#         }
-#     }
-    
-#     3. Поиск детской зимней одежды:
-#     {
-#         "categories": {
-#             "main_categories": ["kids"],
-#             "subcategories": ["outerwear"],
-#             "seasons": ["winter"]
-#         },
-#         "conditions": ["new", "like_new"],
-#         "sorting": {
-#             "sort_by": "price_desc"
-#         }
-#     }
-#     """
-#     result = await AdService.search_ads_comprehensive(db, search_data)
-    
-#     # Добавляем информацию об избранном для авторизованных пользователей
-#     if current_user:
-#         for ad in result["ads"]:
-#             is_fav = await AdService.is_favorite(db, ad.id, current_user.id)
-#             setattr(ad, 'is_favorite', is_fav)
-    
-#     return result
-
-from fastapi import Query
 
 @router.post("/search/advanced", response_model=dict[str, Any])
 async def advanced_search(
@@ -304,23 +243,14 @@ async def get_filter_suggestions(
         ).order_by(Ad.size).limit(limit)
         
     elif field == "colors":
-        # Для PostgreSQL
-        if db.bind.dialect.name == 'postgresql':
-            stmt = select(
-                func.distinct(func.jsonb_array_elements_text(Ad.colors).label('color'))
-            ).where(
-                Ad.colors.isnot(None),
-                func.jsonb_array_elements_text(Ad.colors).ilike(f"%{query}%"),
-                Ad.status == AdStatus.ACTIVE
-            ).order_by('color').limit(limit)
-        else:
-            stmt = select(
-                func.distinct(Ad.colors)
-            ).where(
-                Ad.colors.isnot(None),
-                cast(Ad.colors, String).ilike(f'%"{query}%"'),
-                Ad.status == AdStatus.ACTIVE
-            ).limit(limit)
+        # Для SQLite
+        stmt = select(
+            func.distinct(Ad.colors)
+        ).where(
+            Ad.colors.isnot(None),
+            cast(Ad.colors, String).ilike(f'%"{query}%"'),
+            Ad.status == AdStatus.ACTIVE
+        ).limit(limit)
     
     elif field == "main_categories":
         stmt = select(
@@ -339,111 +269,11 @@ async def get_filter_suggestions(
     
     return {"field": field, "suggestions": suggestions}
 
-
-
-# @router.get("/categories/all", response_model=dict[str, list[str]])
-# async def get_all_categories():
-#     """
-#     Получить все доступные категории для фильтрации
-    
-#     Возвращает:
-#     {
-#         "main_categories": ["mens", "womens", "kids", ...],
-#         "subcategories": ["formal", "casual", "sports", ...],
-#         "seasons": ["summer", "winter", ...],
-#         "conditions": ["new", "like_new", ...],
-#         "ad_types": ["sell", "buy", ...],
-#         "sizes": ["XS", "S", "M", "L", "XL", ...],
-#         "popular_brands": ["Zara", "H&M", ...],
-#         "colors": ["black", "white", "blue", ...]
-#     }
-#     """
-#     return {
-#         "main_categories": [cat.value for cat in ClothingCategory if cat.value in [
-#             "mens", "womens", "kids", "unisex", "baby"
-#         ]],
-#         "subcategories": [cat.value for cat in ClothingCategory if cat.value in [
-#             "formal", "casual", "sports", "outerwear", "underwear",
-#             "swimwear", "accessories", "shoes", "bags", "jewelry"
-#         ]],
-#         "seasons": [cat.value for cat in ClothingCategory if cat.value in [
-#             "summer", "winter", "autumn", "spring", "all_season"
-#         ]],
-#         "conditions": [cond.value for cond in Condition],
-#         "ad_types": [ad_type.value for ad_type in AdType],
-#         "sizes": ["XS", "S", "M", "L", "XL", "XXL", "XXXL"],
-#         "popular_brands": ["Zara", "H&M", "Nike", "Adidas", "Gucci", "Prada"],
-#         "colors": ["black", "white", "red", "blue", "green", "yellow", "pink"]
-#     }
-
 # ---------- Объявления (авторизованные) ----------
-
-# @router.post("/", response_model=AdResponse, status_code=status.HTTP_201_CREATED)
-# async def create_ad(
-#     type: str = Form(...),
-#     title: str = Form(...),
-#     description: Optional[str] = Form(None),
-#     price: Optional[float] = Form(None),
-#     condition: Optional[str] = Form(None),
-#     main_category: Optional[str] = Form(None),
-#     sub_category: Optional[str] = Form(None),
-#     season: Optional[str] = Form(None),
-#     size: Optional[str] = Form(None),
-#     colors: Optional[str] = Form(None),  # JSON строка или список через запятую
-#     tags: Optional[str] = Form(None),
-#     brand: Optional[str] = Form(None),
-#     # Изображения загружаются отдельно
-#     images: Optional[list[UploadFile]] = File(None),
-#     db: AsyncSession = Depends(get_db),
-#     current_user: User = Depends(get_current_user),
-# ):
-#     colors_list = []
-#     if colors:
-#         try:
-#             # Пытаемся распарсить как JSON
-#             import json
-#             colors_list = json.loads(colors)
-#         except:
-#             # Или как список через запятую
-#             colors_list = [c.strip() for c in colors.split(',') if c.strip()]
-
-#     ad_data = AdCreate(
-#         type=type,
-#         title=title,
-#         description=description,
-#         price=price,
-#         condition=condition,
-#         main_category=main_category,
-#         sub_category=sub_category,
-#         season=season,
-#         size=size,
-#         colors=colors_list,
-#         tags=tags,
-#         brand=brand
-#     )
-
-#     print(f"📤 Создание объявления: {ad_data.title}")
-#     print(f"📸 Загружено изображений: {len(images) if images else 0}")
-
-#     """Создать новое объявление"""
-#     ad = await AdService.create_ad(db, ad_data, current_user.id)
-    
-#     # Загружаем изображения, если они есть
-#     if images:
-#         for image in images:
-#             await AdService.add_image_to_ad(
-#                 db=db,
-#                 ad_id=ad.id,
-#                 image_file=image,  # Сервису нужно будет обработать UploadFile
-#                 user_id=current_user.id,
-#                 is_admin=current_user.is_admin
-#             )
-    
-#     return ad
 
 @router.post("/", response_model=AdResponse, status_code=status.HTTP_201_CREATED)
 async def create_ad(
-    ad_data: AdCreate,  # ← ВОЗВРАЩАЕМ JSON, а не Form
+    ad_data: AdCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -456,16 +286,6 @@ async def create_ad(
     
     return ad
 
-<<<<<<< HEAD
-
-@router.get("/{ad_id}", response_model=AdResponse)
-async def get_ad(ad_id: int, db: AsyncSession = Depends(get_db)):
-    """Получить объявление по ID"""
-    ad = await AdService.get_ad(db, ad_id)
-    if not ad:
-        raise HTTPException(status_code=404, detail="Ad not found")
-    return ad
-
 
 @router.put("/{ad_id}", response_model=AdResponse)
 async def update_ad(
@@ -475,56 +295,15 @@ async def update_ad(
     current_user: User = Depends(get_current_user),
 ):
     """Обновить объявление (только владелец)"""
-    ad_dict = ad_data.dict(exclude_unset=True)
+    # ad_dict = ad_data.dict(exclude_unset=True)
     
-    if not ad_dict:
-        raise HTTPException(status_code=400, detail="No fields to update")
+    # if not ad_dict:
+    #     raise HTTPException(status_code=400, detail="No fields to update")
     
-    ad = await AdService.update_ad(db, ad_id, current_user.id, ad_dict)
+    ad = await AdService.update_ad(db, ad_id, current_user.id, ad_data)
     if not ad:
         raise HTTPException(status_code=404, detail="Ad not found or you don't have permission")
     
-    return ad
-
-
-@router.delete("/{ad_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_ad(
-    ad_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Удалить объявление (только владелец)"""
-    success = await AdService.delete_ad(db, ad_id, current_user.id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Ad not found or you don't have permission")
-    
-    return None
-
-
-# ---------- Загрузка изображений ----------
-
-@router.post("/upload-image")
-async def upload_image(
-    file: UploadFile = File(...),  # ВАЖНО: имя параметра file
-=======
-@router.put("/{ad_id}", response_model=AdResponse)
-async def update_ad_full(
-    ad_id: int,
-    ad_data: AdUpdate,
->>>>>>> e55ae645be148cf1b0ffa1f6267a841ae77f241b
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Полное обновление объявления (PUT)"""
-    ad = await AdService.update_ad(
-        db=db,
-        ad_id=ad_id,
-        user_id=current_user.id,
-        ad_data=ad_data,
-        is_admin=current_user.is_admin
-    )
-    if not ad:
-        raise HTTPException(status_code=404, detail="Объявление не найдено или нет прав доступа")
     return ad
 
 
@@ -548,10 +327,12 @@ async def update_ad_partial(
     return ad
 
 
+# УДАЛЕН НЕПРАВИЛЬНЫЙ ЭНДПОИНТ @router.post("/upload-image") - он некорректный
+
 @router.delete("/{ad_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_ad(
     ad_id: int,
-    soft_delete: bool = Query(True, description="Мягкое удаление (is_active=False)"),
+    soft_delete: bool = Query(False, description="Физическое удаление (is_active=False)"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -566,45 +347,69 @@ async def delete_ad(
     if not success:
         raise HTTPException(status_code=404, detail="Объявление не найдено или нет прав доступа")
 
-@router.post("/{ad_id}/activate", response_model=AdResponse)
+
+@router.post("/{ad_id}/activate", response_model=AdStatusResponse)
 async def activate_ad(
     ad_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Активировать объявление"""
-    update_data = AdUpdate(status=AdStatus.ACTIVE)
-    ad = await AdService.update_ad(
-        db=db,
-        ad_id=ad_id,
-        user_id=current_user.id,
-        ad_data=update_data,
-        is_admin=current_user.is_admin
-    )
+    # Находим объявление
+    stmt = select(Ad).where(Ad.id == ad_id)
+    result = await db.execute(stmt)
+    ad = result.scalar_one_or_none()
+    
     if not ad:
-        raise HTTPException(status_code=404, detail="Объявление не найдено или нет прав доступа")
-    return ad
+        raise HTTPException(status_code=404, detail="Объявление не найдено")
+    
+    # Проверяем права доступа
+    if not current_user.is_admin and ad.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Нет прав доступа")
+    
+    # Активируем
+    ad.status = AdStatus.ACTIVE
+    ad.updated_at = datetime.now(timezone.utc)
+    
+    await db.commit()
+    # await db.refresh(ad)
+    
+    return {
+            "message": "Объявление активировано",
+            "ad_id": ad_id,
+            "status": "active"
+        }
 
-
-@router.post("/{ad_id}/deactivate", response_model=AdResponse)
+@router.post("/{ad_id}/deactivate", response_model=AdStatusResponse)
 async def deactivate_ad(
     ad_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Деактивировать объявление"""
-    update_data = AdUpdate(status=AdStatus.INACTIVE)
-    ad = await AdService.update_ad(
-        db=db,
-        ad_id=ad_id,
-        user_id=current_user.id,
-        ad_data=update_data,
-        is_admin=current_user.is_admin
-    )
+    # Находим объявление
+    stmt = select(Ad).where(Ad.id == ad_id)
+    result = await db.execute(stmt)
+    ad = result.scalar_one_or_none()
+    
     if not ad:
-        raise HTTPException(status_code=404, detail="Объявление не найдено или нет прав доступа")
-    return ad
-
+        raise HTTPException(status_code=404, detail="Объявление не найдено")
+    
+    # Проверяем права доступа
+    if not current_user.is_admin and ad.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Нет прав доступа")
+    
+    # Деактивируем
+    ad.status = AdStatus.INACTIVE
+    ad.updated_at = datetime.now(timezone.utc)
+    
+    await db.commit()
+    # await db.refresh(ad)
+    return {
+        "message": "Объявление деактивировано",
+        "ad_id": ad_id,
+        "status": "inactive"
+    }
 
 # ---------- Избранное ----------
 
@@ -677,7 +482,7 @@ async def upload_image(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Загрузить изображение"""
+    """Загрузить изображение (отдельно от объявления)"""
     # Валидация файла
     validate_image_file(file)
     

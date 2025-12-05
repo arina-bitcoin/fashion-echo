@@ -1,11 +1,4 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-<<<<<<< HEAD
-from sqlalchemy import select, or_, and_, func, cast, String, delete
-from typing import Optional, List
-from Backend.app.models.ad import Ad
-from Backend.app.schemas.ad import AdCreate
-import json
-=======
 import asyncio
 from sqlalchemy import select, update, delete, and_, or_, func, desc, asc, text, cast, String
 from sqlalchemy.orm import selectinload, joinedload
@@ -25,7 +18,6 @@ from Backend.app.schemas.ad import (
     AdStatus,
     SortBy
 )
->>>>>>> e55ae645be148cf1b0ffa1f6267a841ae77f241b
 
 class AdService:
     
@@ -46,9 +38,10 @@ class AdService:
         max_price: Optional[float] = None,
         size: Optional[str] = None,
         color: Optional[str] = None,
-        query: Optional[str] = None,
+        search: Optional[str] = None,
         sort: Optional[str] = "newest"
     ) -> list[Ad]:
+        print(f"🎯 DEBUG get_ads called with search='{search}'")
         """Получить список объявлений с фильтрацией"""
         stmt = select(Ad).options(
             selectinload(Ad.images),
@@ -71,8 +64,19 @@ class AdService:
 
         # Фильтр по основной категории
         if main_category and hasattr(Ad, 'main_category'):
-            stmt = stmt.where(Ad.main_category == main_category)
-        
+            # print(f"🔍 DEBUG: Filtering by main_category='{main_category}' (type: {type(main_category).__name__})")
+            
+            # Если main_category - это список
+            if isinstance(main_category, list) and len(main_category) > 0:
+                # print(f"🔍 DEBUG: Filtering by categories list: {main_category}")
+                if len(main_category) == 1:
+                    stmt = stmt.where(Ad.main_category == main_category[0])
+                else:
+                    stmt = stmt.where(Ad.main_category.in_(main_category))
+            elif isinstance(main_category, str) and main_category.strip():
+                # Если строка
+                stmt = stmt.where(Ad.main_category == main_category.strip())
+
         # Фильтр по подкатегории
         if sub_category and hasattr(Ad, 'sub_category'):
             stmt = stmt.where(Ad.sub_category == sub_category)
@@ -111,15 +115,36 @@ class AdService:
                 pass  # Игнорируем ошибки если поле colors не существует
         
         # Текстовый поиск
-        if query:
-            search_query = f"%{query}%"
-            stmt = stmt.where(
-                or_(
-                    Ad.title.ilike(search_query),
-                    Ad.description.ilike(search_query),
-                    Ad.tags.ilike(search_query)
-                )
-            )
+        if search:
+            search_lower = search.lower()
+            print(f"🔍 DEBUG: Search lower (Python): '{search_lower}'")
+            
+            # Получаем ВСЕ активные объявления
+            all_ads_stmt = select(Ad).where(Ad.status == AdStatus.ACTIVE)
+            all_ads_result = await db.execute(all_ads_stmt)
+            all_active_ads = all_ads_result.scalars().all()
+            
+            # Фильтруем в Python
+            filtered_ads_ids = []
+            for ad in all_active_ads:
+                # Приводим всё к нижнему регистру в Python
+                title_lower = ad.title.lower() if ad.title else ""
+                description_lower = ad.description.lower() if ad.description else ""
+                tags_lower = ad.tags.lower() if ad.tags else ""
+                
+                if (search_lower in title_lower or 
+                    search_lower in description_lower or 
+                    search_lower in tags_lower):
+                    filtered_ads_ids.append(ad.id)
+            
+            print(f"🔍 DEBUG: Found {len(filtered_ads_ids)} ads after Python filtering: {filtered_ads_ids}")
+            
+            # Если найдены объявления, фильтруем по ID
+            if filtered_ads_ids:
+                stmt = stmt.where(Ad.id.in_(filtered_ads_ids))
+            else:
+                # Если ничего не найдено, возвращаем пустой результат
+                stmt = stmt.where(False)  # Всегда false
         
         # Сортировка
         if sort == "newest":
@@ -190,36 +215,12 @@ class AdService:
             stmt = select(Ad).where(and_(Ad.id == ad_id, Ad.user_id == user_id))
         
         result = await db.execute(stmt)
-<<<<<<< HEAD
-        return list(result.scalars().all())
-    
-    @staticmethod
-    async def update_ad(db: AsyncSession, ad_id: int, user_id: int, ad_data: dict) -> Optional[Ad]:
-        """Обновить объявление"""
-        stmt = select(Ad).filter(Ad.id == ad_id, Ad.user_id == user_id)
-        result = await db.execute(stmt)
-=======
->>>>>>> e55ae645be148cf1b0ffa1f6267a841ae77f241b
         ad = result.scalar_one_or_none()
         
         if not ad:
             return None
         
         # Обновляем только переданные поля
-<<<<<<< HEAD
-        for key, value in ad_data.items():
-            if value is not None:
-                setattr(ad, key, value)
-        
-        await db.commit()
-        await db.refresh(ad)
-        return ad
-    
-    @staticmethod
-    async def delete_ad(db: AsyncSession, ad_id: int, user_id: int) -> bool:
-        """Удалить объявление"""
-        stmt = select(Ad).filter(Ad.id == ad_id, Ad.user_id == user_id)
-=======
         update_data = ad_data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             if value is not None:  # Позволяем сбрасывать значения в None если нужно
@@ -236,7 +237,7 @@ class AdService:
         ad_id: int, 
         user_id: int, 
         is_admin: bool = False, 
-        soft_delete: bool = True
+        soft_delete: bool = False
     ) -> bool:
         """Удалить объявление (мягкое или физическое)"""
         # Проверяем права доступа
@@ -245,20 +246,12 @@ class AdService:
         else:
             stmt = select(Ad).where(and_(Ad.id == ad_id, Ad.user_id == user_id))
         
->>>>>>> e55ae645be148cf1b0ffa1f6267a841ae77f241b
         result = await db.execute(stmt)
         ad = result.scalar_one_or_none()
         
         if not ad:
             return False
         
-<<<<<<< HEAD
-        # Удаляем объявление
-        delete_stmt = delete(Ad).where(Ad.id == ad_id, Ad.user_id == user_id)
-        await db.execute(delete_stmt)
-        await db.commit()
-        return True
-=======
         if soft_delete:
             # Мягкое удаление
             ad.status = AdStatus.INACTIVE
@@ -269,14 +262,29 @@ class AdService:
             await db.execute(
                 delete(FavoriteAd).where(FavoriteAd.ad_id == ad_id)
             )
+            
+            # Удаляем изображения с диска
+            images_stmt = select(AdImage).where(AdImage.ad_id == ad_id)
+            images_result = await db.execute(images_stmt)
+            images = images_result.scalars().all()
+            
+            for image in images:
+                file_path = Path(image.file_path)
+                if file_path.exists():
+                    try:
+                        await aiofiles.os.remove(file_path)
+                    except:
+                        pass  # Игнорируем ошибки удаления файла
+            
+            # Удаляем записи изображений
             await db.execute(
                 delete(AdImage).where(AdImage.ad_id == ad_id)
             )
-            # Затем само объявление
+            
+            # Удаляем само объявление
             await db.delete(ad)
-        
-        await db.commit()
-        return True
+            await db.commit()
+            return True
     
     # ---------- Операции пользователя ----------
     
@@ -337,556 +345,557 @@ class AdService:
         await db.refresh(ad)
         return ad
     
-    # ---------- Поиск ----------
+    # # ---------- Поиск ----------
     
+    # # @staticmethod
+    # # async def search_ads(
+    # #     db: AsyncSession,
+    # #     query: Optional[str] = None,
+    # #     min_price: Optional[float] = None,
+    # #     max_price: Optional[float] = None,
+    # #     type: Optional[str] = None,
+    # #     category: Optional[str] = None,
+    # #     location: Optional[str] = None,
+    # #     sort_by: str = "newest",  # newest, oldest, price_asc, price_desc, popular
+    # #     skip: int = 0,
+    # #     limit: int = 100
+    # # ) -> list[Ad]:
+    # #     """Расширенный поиск объявлений"""
+    # #     stmt = select(Ad).options(
+    # #         selectinload(Ad.images),
+    # #         selectinload(Ad.user)
+    # #     ).where(Ad.is_active == True)
+        
+    # #     # Текстовый поиск
+    # #     if query:
+    # #         search_query = f"%{query}%"
+    # #         stmt = stmt.where(
+    # #             or_(
+    # #                 Ad.title.ilike(search_query),
+    # #                 Ad.description.ilike(search_query),
+    # #                 Ad.tags.ilike(search_query)
+    # #             )
+    # #         )
+        
+    # #     # Фильтр по цене
+    # #     if min_price is not None:
+    # #         stmt = stmt.where(Ad.price >= min_price)
+    # #     if max_price is not None:
+    # #         stmt = stmt.where(Ad.price <= max_price)
+        
+    # #     # Фильтр по типу
+    # #     if type:
+    # #         stmt = stmt.where(Ad.type == type)
+        
+    # #     # Фильтр по категории
+    # #     if category:
+    # #         stmt = stmt.where(Ad.category == category)
+        
+    # #     # Фильтр по местоположению
+    # #     if location:
+    # #         stmt = stmt.where(Ad.location.ilike(f"%{location}%"))
+        
+    # #     # Сортировка
+    # #     if sort_by == "newest":
+    # #         stmt = stmt.order_by(desc(Ad.created_at))
+    # #     elif sort_by == "oldest":
+    # #         stmt = stmt.order_by(asc(Ad.created_at))
+    # #     elif sort_by == "price_asc":
+    # #         stmt = stmt.order_by(asc(Ad.price))
+    # #     elif sort_by == "price_desc":
+    # #         stmt = stmt.order_by(desc(Ad.price))
+    # #     elif sort_by == "popular":
+    # #         stmt = stmt.order_by(desc(Ad.view_count))
+        
+    # #     stmt = stmt.offset(skip).limit(limit)
+        
+    # #     result = await db.execute(stmt)
+    # #     return result.scalars().all()
+    
+
     # @staticmethod
-    # async def search_ads(
+    # async def advanced_search(
     #     db: AsyncSession,
-    #     query: Optional[str] = None,
-    #     min_price: Optional[float] = None,
-    #     max_price: Optional[float] = None,
-    #     type: Optional[str] = None,
-    #     category: Optional[str] = None,
-    #     location: Optional[str] = None,
-    #     sort_by: str = "newest",  # newest, oldest, price_asc, price_desc, popular
-    #     skip: int = 0,
-    #     limit: int = 100
-    # ) -> list[Ad]:
-    #     """Расширенный поиск объявлений"""
+    #     search_params: AdSearch
+    # ) -> dict[str, Any]:
+    #     """
+    #     Расширенный поиск объявлений с множественными фильтрами
+        
+    #     Возвращает:
+    #     {
+    #         "ads": List[Ad],          # Найденные объявления
+    #         "total": int,             # Общее количество (без пагинации)
+    #         "filters_applied": Dict   # Примененные фильтры
+    #     }
+    #     """
+    #     # Базовый запрос
     #     stmt = select(Ad).options(
     #         selectinload(Ad.images),
     #         selectinload(Ad.user)
+    #     )
+
+    #     applied_filters = {}
+
+    #     # 1. ФИЛЬТРАЦИЯ ПО СТАТУСУ
+    #     if search_params.status == AdStatus.ACTIVE:
+    #         stmt = stmt.where(Ad.status == AdStatus.ACTIVE)
+    #         applied_filters["status"] = "active"
+    #     elif search_params.status == AdStatus.INACTIVE:
+    #         stmt = stmt.where(Ad.status == AdStatus.INACTIVE)
+    #         applied_filters["status"] = "inactive"
+    #     # Для "all" не применяем фильтр
+        
+    #     # 2. ФИЛЬТРАЦИЯ ПО ТИПУ ОБЪЯВЛЕНИЯ
+    #     if search_params.ad_type:
+    #         stmt = stmt.where(Ad.type == search_params.ad_type)
+    #         applied_filters["type"] = search_params.ad_type
+        
+    #     # 3. ФИЛЬТРАЦИЯ ПО ОСНОВНЫМ КАТЕГОРИЯМ (MULTI-SELECT)
+    #     if search_params.main_categories:
+    #         # Создаем условие OR для нескольких категорий
+    #         category_conditions = []
+    #         for category in search_params.main_categories:
+    #             category_conditions.append(Ad.main_category == category)
+            
+    #         if category_conditions:
+    #             stmt = stmt.where(or_(*category_conditions))
+    #             applied_filters["main_categories"] = search_params.main_categories
+        
+    #     # 4. ФИЛЬТРАЦИЯ ПО ПОДКАТЕГОРИЯМ (MULTI-SELECT)
+    #     if search_params.sub_categories:
+    #         subcategory_conditions = []
+    #         for subcategory in search_params.sub_categories:
+    #             subcategory_conditions.append(Ad.sub_category == subcategory)
+            
+    #         if subcategory_conditions:
+    #             stmt = stmt.where(or_(*subcategory_conditions))
+    #             applied_filters["sub_categories"] = search_params.sub_categories
+        
+    #     # 5. ФИЛЬТРАЦИЯ ПО СЕЗОНАМ (MULTI-SELECT)
+    #     if search_params.seasons:
+    #         season_conditions = []
+    #         for season in search_params.seasons:
+    #             season_conditions.append(Ad.season == season)
+            
+    #         if season_conditions:
+    #             stmt = stmt.where(or_(*season_conditions))
+    #             applied_filters["seasons"] = search_params.seasons
+        
+    #     # 6. ФИЛЬТРАЦИЯ ПО ЦЕНОВОМУ ДИАПАЗОНУ
+    #     price_filters = []
+        
+    #     if search_params.min_price is not None:
+    #         price_filters.append(Ad.price >= search_params.min_price)
+    #         applied_filters["min_price"] = search_params.min_price
+        
+    #     if search_params.max_price is not None:
+    #         price_filters.append(Ad.price <= search_params.max_price)
+    #         applied_filters["max_price"] = search_params.max_price
+        
+    #     if price_filters:
+    #         stmt = stmt.where(and_(*price_filters))
+        
+    #     # 7. ФИЛЬТРАЦИЯ ПО СОСТОЯНИЮ ТОВАРА (MULTI-SELECT)
+    #     if search_params.conditions:
+    #         condition_filters = []
+    #         for condition in search_params.conditions:
+    #             condition_filters.append(Ad.condition == condition)
+            
+    #         if condition_filters:
+    #             stmt = stmt.where(or_(*condition_filters))
+    #             applied_filters["conditions"] = search_params.conditions
+        
+    #     # 8. ФИЛЬТРАЦИЯ ПО РАЗМЕРАМ (MULTI-SELECT + SMART MATCHING)
+    #     if search_params.sizes:
+    #         size_filters = []
+            
+    #         for size in search_params.sizes:
+    #             size_lower = size.lower().strip()
+                
+    #             # Умное сопоставление размеров
+    #             if size_lower in ["xs", "s", "m", "l", "xl", "xxl"]:
+    #                 # Для буквенных размеров ищем точное совпадение
+    #                 size_filters.append(
+    #                     or_(
+    #                         Ad.size.ilike(f"%{size_lower}%"),
+    #                         Ad.size.ilike(f"%{size_lower.upper()}%"),
+    #                     )
+    #                 )
+    #             else:
+    #                 # Для числовых размеров ищем частичное совпадение
+    #                 size_filters.append(Ad.size.ilike(f"%{size_lower}%"))
+            
+    #         if size_filters:
+    #             stmt = stmt.where(or_(*size_filters))
+    #             applied_filters["sizes"] = search_params.sizes
+        
+    #     # 9. ФИЛЬТРАЦИЯ ПО ЦВЕТАМ (JSON ARRAY CONTAINS)
+    #     if search_params.colors:
+    #         # Для PostgreSQL используем оператор @>
+    #         if db.bind.dialect.name == 'postgresql':
+    #             # Преобразуем цвета в lowercase для поиска
+    #             colors_lower = [color.lower() for color in search_params.colors]
+                
+    #             # Создаем условие для каждого цвета
+    #             color_conditions = []
+    #             for color in colors_lower:
+    #                 # Ищем цвет в JSON массиве
+    #                 color_conditions.append(
+    #                     Ad.colors.op('@>')([color])
+    #                 )
+                
+    #             if color_conditions:
+    #                 stmt = stmt.where(or_(*color_conditions))
+    #         else:
+    #             # Для SQLite и других БД используем LIKE
+    #             color_conditions = []
+    #             for color in search_params.colors:
+    #                 color_lower = color.lower()
+    #                 color_conditions.append(
+    #                     cast(Ad.colors, String).ilike(f'%"{color_lower}"%')
+    #                 )
+                
+    #             if color_conditions:
+    #                 stmt = stmt.where(or_(*color_conditions))
+            
+    #         applied_filters["colors"] = search_params.colors
+        
+    #     # 10. ТЕКСТОВЫЙ ПОИСК (ПОЛНОТЕКСТОВЫЙ ИЛИ LIKE)
+    #     if search_params.query:
+    #         query_clean = search_params.query.strip()
+            
+    #         # Разбиваем запрос на слова
+    #         words = re.findall(r'\w+', query_clean.lower())
+            
+    #         if words:
+    #             # Для PostgreSQL используем полнотекстовый поиск
+    #             if db.bind.dialect.name == 'postgresql' and len(words) > 1:
+    #                 # Создаем tsquery
+    #                 ts_query = " & ".join(words)
+    #                 stmt = stmt.where(
+    #                     text(f"to_tsvector('russian', coalesce(title, '') || ' ' || "
+    #                          f"coalesce(description, '') || ' ' || "
+    #                          f"coalesce(tags, '')) @@ to_tsquery('russian', :ts_query)")
+    #                 ).params(ts_query=ts_query)
+    #             else:
+    #                 # Для других БД используем LIKE по каждому слову
+    #                 like_conditions = []
+    #                 for word in words:
+    #                     if len(word) > 2:  # Игнорируем слишком короткие слова
+    #                         search_word = f"%{word}%"
+    #                         like_conditions.extend([
+    #                             func.lower(Ad.title).ilike(search_word),
+    #                             func.lower(Ad.description).ilike(search_word),
+    #                             func.lower(Ad.tags).ilike(search_word)
+    #                         ])
+                    
+    #                 if like_conditions:
+    #                     stmt = stmt.where(or_(*like_conditions))
+            
+    #         applied_filters["query"] = search_params.query
+        
+    #     # 11. ДОПОЛНИТЕЛЬНЫЕ ФИЛЬТРЫ
+        
+    #     # Фильтр по пользователю
+    #     if search_params.user_id:
+    #         stmt = stmt.where(Ad.user_id == search_params.user_id)
+    #         applied_filters["user_id"] = search_params.user_id
+        
+    #     # Только с изображениями
+    #     if search_params.has_images is True:
+    #         stmt = stmt.where(Ad.images.any())  # Есть хотя бы одно изображение
+    #         applied_filters["has_images"] = True
+        
+    #     # Возможен торг
+    #     if search_params.is_negotiable is not None:
+    #         stmt = stmt.where(Ad.is_negotiable == search_params.is_negotiable)
+    #         applied_filters["is_negotiable"] = search_params.is_negotiable
+        
+    #     # 12. ПОДСЧЕТ ОБЩЕГО КОЛИЧЕСТВА (до пагинации)
+    #     count_stmt = select(func.count()).select_from(stmt.subquery())
+    #     total_result = await db.execute(count_stmt)
+    #     total = total_result.scalar() or 0
+        
+    #     # 13. СОРТИРОВКА
+    #     if search_params.sort_by == SortBy.NEWEST:
+    #         stmt = stmt.order_by(desc(Ad.created_at))
+    #     elif search_params.sort_by == SortBy.OLDEST:
+    #         stmt = stmt.order_by(asc(Ad.created_at))
+    #     elif search_params.sort_by == SortBy.PRICE_ASC:
+    #         stmt = stmt.order_by(asc(Ad.price))
+    #     elif search_params.sort_by == SortBy.PRICE_DESC:
+    #         stmt = stmt.order_by(desc(Ad.price))
+    #     elif search_params.sort_by == SortBy.POPULAR:
+    #         # Композитная сортировка: по просмотрам и избранным
+    #         stmt = stmt.order_by(
+    #             desc(Ad.view_count),
+    #             desc(Ad.favorite_count),
+    #             desc(Ad.created_at)
+    #         )
+    #     elif search_params.sort_by == SortBy.VIEWS:
+    #         stmt = stmt.order_by(desc(Ad.view_count))
+    #     elif search_params.sort_by == SortBy.FAVORITES:
+    #         stmt = stmt.order_by(desc(Ad.favorite_count))
+        
+    #     applied_filters["sort_by"] = search_params.sort_by.value
+        
+    #     # 14. ПАГИНАЦИЯ
+    #     stmt = stmt.offset(search_params.skip).limit(search_params.limit)
+    #     applied_filters["pagination"] = {
+    #         "skip": search_params.skip,
+    #         "limit": search_params.limit,
+    #         "total": total
+    #     }
+        
+    #     # Выполняем запрос
+    #     result = await db.execute(stmt)
+    #     ads = result.scalars().all()
+        
+    #     return {
+    #         "ads": ads,
+    #         "total": total,
+    #         "filters_applied": applied_filters,
+    #         "has_more": (search_params.skip + search_params.limit) < total
+    #     }
+        
+    #     # # Базовые условия
+    #     # if search_data.only_active:
+    #     #     stmt = stmt.where(Ad.is_active == True)
+        
+    #     # # 1. Текстовый поиск
+    #     # if search_data.query:
+    #     #     search_query = f"%{search_data.query}%"
+    #     #     stmt = stmt.where(
+    #     #         or_(
+    #     #             Ad.title.ilike(search_query),
+    #     #             Ad.description.ilike(search_query),
+    #     #             Ad.tags.ilike(search_query),
+    #     #             Ad.brand.ilike(search_query)
+    #     #         )
+    #     #     )
+        
+    #     # # 2. Фильтр по цене
+    #     # if search_data.min_price is not None:
+    #     #     stmt = stmt.where(Ad.price >= search_data.min_price)
+    #     # if search_data.max_price is not None:
+    #     #     stmt = stmt.where(Ad.price <= search_data.max_price)
+        
+    #     # # 3. Фильтр по типу объявления
+    #     # if search_data.ad_types:
+    #     #     type_conditions = []
+    #     #     for ad_type in search_data.ad_types:
+    #     #         type_conditions.append(Ad.type == ad_type.value)
+    #     #     if type_conditions:
+    #     #         stmt = stmt.where(or_(*type_conditions))
+        
+    #     # # 4. Фильтр по состоянию
+    #     # if search_data.conditions:
+    #     #     condition_filters = []
+    #     #     for condition in search_data.conditions:
+    #     #         condition_filters.append(Ad.condition == condition.value)
+    #     #     if condition_filters:
+    #     #         stmt = stmt.where(or_(*condition_filters))
+        
+    #     # # 5. Фильтр по размеру
+    #     # if search_data.sizes:
+    #     #     size_filters = []
+    #     #     for size in search_data.sizes:
+    #     #         size_filters.append(Ad.size.ilike(f"%{size}%"))
+    #     #     if size_filters:
+    #     #         stmt = stmt.where(or_(*size_filters))
+        
+    #     # # 6. Фильтр по бренду
+    #     # if search_data.brands:
+    #     #     brand_filters = []
+    #     #     for brand in search_data.brands:
+    #     #         brand_filters.append(Ad.brand.ilike(f"%{brand}%"))
+    #     #     if brand_filters:
+    #     #         stmt = stmt.where(or_(*brand_filters))
+        
+    #     # # 7. Фильтр по цвету
+    #     # if search_data.colors:
+    #     #     color_filters = []
+    #     #     for color in search_data.colors:
+    #     #         color_filters.append(Ad.color.ilike(f"%{color}%"))
+    #     #     if color_filters:
+    #     #         stmt = stmt.where(or_(*color_filters))
+        
+    #     # # 8. Фильтр по местоположению
+    #     # if search_data.location:
+    #     #     stmt = stmt.where(Ad.location.ilike(f"%{search_data.location}%"))
+        
+    #     # # 9. Фильтр по дате создания
+    #     # if search_data.created_after:
+    #     #     stmt = stmt.where(Ad.created_at >= search_data.created_after)
+    #     # if search_data.created_before:
+    #     #     stmt = stmt.where(Ad.created_at <= search_data.created_before)
+        
+    #     # # 10. Сложная фильтрация по категориям
+    #     # if search_data.categories:
+    #     #     category_conditions = search_data.categories.get_filter_conditions()
+    #     #     if category_conditions:
+    #     #         # Здесь нужно преобразовать строковые условия в SQLAlchemy
+    #     #         # Это упрощенный пример, в реальности нужно использовать text() или другой подход
+    #     #         for condition in category_conditions:
+    #     #             # Для простоты предполагаем, что category хранится как строка с тегами
+    #     #             # Например: "mens,casual,summer"
+    #     #             pass
+        
+    #     # # 11. Только с изображениями
+    #     # if search_data.only_with_images:
+    #     #     stmt = stmt.where(Ad.images.any())
+        
+    #     # # 12. Только с возможностью торга
+    #     # if search_data.only_negotiable is not None:
+    #     #     stmt = stmt.where(Ad.is_negotiable == search_data.only_negotiable)
+        
+    #     # # 13. Только свежие
+    #     # if search_data.only_fresh:
+    #     #     from datetime import datetime, timedelta
+    #     #     week_ago = datetime.utcnow() - timedelta(days=7)
+    #     #     stmt = stmt.where(Ad.created_at >= week_ago)
+        
+    #     # # 14. ПРИМЕНЕНИЕ СОРТИРОВКИ
+    #     # sort_expressions = search_data.get_sort_by()
+        
+    #     # # Преобразуем строковые выражения в SQLAlchemy order_by
+    #     # for sort_expr in sort_expressions:
+    #     #     if "created_at DESC" in sort_expr:
+    #     #         stmt = stmt.order_by(desc(Ad.created_at))
+    #     #     elif "created_at ASC" in sort_expr:
+    #     #         stmt = stmt.order_by(asc(Ad.created_at))
+    #     #     elif "price ASC" in sort_expr:
+    #     #         stmt = stmt.order_by(asc(Ad.price))
+    #     #     elif "price DESC" in sort_expr:
+    #     #         stmt = stmt.order_by(desc(Ad.price))
+    #     #     elif "popular" in sort_expr.lower():
+    #     #         # Сложная сортировка по популярности
+    #     #         stmt = stmt.order_by(
+    #     #             desc((Ad.view_count * 0.5) + (Ad.favorite_count * 0.5))
+    #     #         )
+    #     #     elif "last_viewed" in sort_expr:
+    #     #         stmt = stmt.order_by(desc(Ad.last_viewed))
+    #     #     elif "updated_at" in sort_expr:
+    #     #         stmt = stmt.order_by(desc(Ad.updated_at))
+    #     #     elif "expires_at" in sort_expr:
+    #     #         stmt = stmt.order_by(asc(Ad.expires_at))
+        
+    #     # # 15. ПАГИНАЦИЯ
+    #     # stmt = stmt.offset(search_data.get_skip()).limit(search_data.get_limit())
+        
+    #     # # Выполняем запрос
+    #     # result = await db.execute(stmt)
+    #     # ads = result.scalars().all()
+        
+    #     # # Получаем общее количество для пагинации
+    #     # count_stmt = select(func.count()).select_from(stmt.subquery())
+    #     # total_result = await db.execute(count_stmt)
+    #     # total_count = total_result.scalar()
+        
+    #     # return {
+    #     #     "ads": ads,
+    #     #     "total": total_count,
+    #     #     "page": search_data.page,
+    #     #     "per_page": search_data.per_page,
+    #     #     "total_pages": (total_count + search_data.per_page - 1) // search_data.per_page
+    #     # }
+    
+    # @staticmethod
+    # async def get_filter_options(db: AsyncSession) -> dict[str, list[str]]:
+    #     """
+    #     Получить доступные опции для фильтров
+    #     (для заполнения выпадающих списков на фронтенде)
+    #     """
+    #     # Основные категории
+    #     main_categories_stmt = select(
+    #         func.distinct(Ad.main_category)
+    #     ).where(
+    #         Ad.main_category.isnot(None),
+    #         Ad.is_active == True
+    #     ).order_by(Ad.main_category)
+        
+    #     # Подкатегории
+    #     sub_categories_stmt = select(
+    #         func.distinct(Ad.sub_category)
+    #     ).where(
+    #         Ad.sub_category.isnot(None),
+    #         Ad.is_active == True
+    #     ).order_by(Ad.sub_category)
+        
+    #     # Сезоны
+    #     seasons_stmt = select(
+    #         func.distinct(Ad.season)
+    #     ).where(
+    #         Ad.season.isnot(None),
+    #         Ad.is_active == True
+    #     ).order_by(Ad.season)
+        
+    #     # Состояния товара
+    #     conditions_stmt = select(
+    #         func.distinct(Ad.condition)
+    #     ).where(
+    #         Ad.condition.isnot(None),
+    #         Ad.is_active == True
+    #     ).order_by(Ad.condition)
+        
+    #     # Размеры (уникальные значения)
+    #     sizes_stmt = select(
+    #         func.distinct(Ad.size)
+    #     ).where(
+    #         Ad.size.isnot(None),
+    #         Ad.size != '',
+    #         Ad.is_active == True
+    #     ).order_by(Ad.size)
+        
+    #     # Цвета (собираем из всех объявлений)
+    #     colors_stmt = select(
+    #         func.jsonb_array_elements_text(Ad.colors).label('color')
+    #     ).where(
+    #         Ad.colors.isnot(None),
+    #         Ad.is_active == True
+    #     ).distinct().order_by('color')
+        
+    #     # Выполняем все запросы параллельно
+    #     results = await asyncio.gather(
+    #         db.execute(main_categories_stmt),
+    #         db.execute(sub_categories_stmt),
+    #         db.execute(seasons_stmt),
+    #         db.execute(conditions_stmt),
+    #         db.execute(sizes_stmt),
+    #         db.execute(colors_stmt)
+    #     )
+        
+    #     # Обрабатываем результаты
+    #     main_categories = [r[0] for r in results[0].all() if r[0]]
+    #     sub_categories = [r[0] for r in results[1].all() if r[0]]
+    #     seasons = [r[0] for r in results[2].all() if r[0]]
+    #     conditions = [r[0] for r in results[3].all() if r[0]]
+    #     sizes = [r[0] for r in results[4].all() if r[0]]
+    #     colors = [r[0] for r in results[5].all() if r[0]]
+        
+    #     # Ценовые диапазоны
+    #     price_stats_stmt = select(
+    #         func.min(Ad.price).label('min_price'),
+    #         func.max(Ad.price).label('max_price'),
+    #         func.avg(Ad.price).label('avg_price')
     #     ).where(Ad.is_active == True)
         
-    #     # Текстовый поиск
-    #     if query:
-    #         search_query = f"%{query}%"
-    #         stmt = stmt.where(
-    #             or_(
-    #                 Ad.title.ilike(search_query),
-    #                 Ad.description.ilike(search_query),
-    #                 Ad.tags.ilike(search_query)
-    #             )
-    #         )
+    #     price_result = await db.execute(price_stats_stmt)
+    #     price_stats = price_result.first()
         
-    #     # Фильтр по цене
-    #     if min_price is not None:
-    #         stmt = stmt.where(Ad.price >= min_price)
-    #     if max_price is not None:
-    #         stmt = stmt.where(Ad.price <= max_price)
-        
-    #     # Фильтр по типу
-    #     if type:
-    #         stmt = stmt.where(Ad.type == type)
-        
-    #     # Фильтр по категории
-    #     if category:
-    #         stmt = stmt.where(Ad.category == category)
-        
-    #     # Фильтр по местоположению
-    #     if location:
-    #         stmt = stmt.where(Ad.location.ilike(f"%{location}%"))
-        
-    #     # Сортировка
-    #     if sort_by == "newest":
-    #         stmt = stmt.order_by(desc(Ad.created_at))
-    #     elif sort_by == "oldest":
-    #         stmt = stmt.order_by(asc(Ad.created_at))
-    #     elif sort_by == "price_asc":
-    #         stmt = stmt.order_by(asc(Ad.price))
-    #     elif sort_by == "price_desc":
-    #         stmt = stmt.order_by(desc(Ad.price))
-    #     elif sort_by == "popular":
-    #         stmt = stmt.order_by(desc(Ad.view_count))
-        
-    #     stmt = stmt.offset(skip).limit(limit)
-        
-    #     result = await db.execute(stmt)
-    #     return result.scalars().all()
-    
-
-    @staticmethod
-    async def advanced_search(
-        db: AsyncSession,
-        search_params: AdSearch
-    ) -> dict[str, Any]:
-        """
-        Расширенный поиск объявлений с множественными фильтрами
-        
-        Возвращает:
-        {
-            "ads": List[Ad],          # Найденные объявления
-            "total": int,             # Общее количество (без пагинации)
-            "filters_applied": Dict   # Примененные фильтры
-        }
-        """
-        # Базовый запрос
-        stmt = select(Ad).options(
-            selectinload(Ad.images),
-            selectinload(Ad.user)
-        )
-
-        applied_filters = {}
-
-        # 1. ФИЛЬТРАЦИЯ ПО СТАТУСУ
-        if search_params.status == AdStatus.ACTIVE:
-            stmt = stmt.where(Ad.status == AdStatus.ACTIVE)
-            applied_filters["status"] = "active"
-        elif search_params.status == AdStatus.INACTIVE:
-            stmt = stmt.where(Ad.status == AdStatus.INACTIVE)
-            applied_filters["status"] = "inactive"
-        # Для "all" не применяем фильтр
-        
-        # 2. ФИЛЬТРАЦИЯ ПО ТИПУ ОБЪЯВЛЕНИЯ
-        if search_params.ad_type:
-            stmt = stmt.where(Ad.type == search_params.ad_type)
-            applied_filters["type"] = search_params.ad_type
-        
-        # 3. ФИЛЬТРАЦИЯ ПО ОСНОВНЫМ КАТЕГОРИЯМ (MULTI-SELECT)
-        if search_params.main_categories:
-            # Создаем условие OR для нескольких категорий
-            category_conditions = []
-            for category in search_params.main_categories:
-                category_conditions.append(Ad.main_category == category)
-            
-            if category_conditions:
-                stmt = stmt.where(or_(*category_conditions))
-                applied_filters["main_categories"] = search_params.main_categories
-        
-        # 4. ФИЛЬТРАЦИЯ ПО ПОДКАТЕГОРИЯМ (MULTI-SELECT)
-        if search_params.sub_categories:
-            subcategory_conditions = []
-            for subcategory in search_params.sub_categories:
-                subcategory_conditions.append(Ad.sub_category == subcategory)
-            
-            if subcategory_conditions:
-                stmt = stmt.where(or_(*subcategory_conditions))
-                applied_filters["sub_categories"] = search_params.sub_categories
-        
-        # 5. ФИЛЬТРАЦИЯ ПО СЕЗОНАМ (MULTI-SELECT)
-        if search_params.seasons:
-            season_conditions = []
-            for season in search_params.seasons:
-                season_conditions.append(Ad.season == season)
-            
-            if season_conditions:
-                stmt = stmt.where(or_(*season_conditions))
-                applied_filters["seasons"] = search_params.seasons
-        
-        # 6. ФИЛЬТРАЦИЯ ПО ЦЕНОВОМУ ДИАПАЗОНУ
-        price_filters = []
-        
-        if search_params.min_price is not None:
-            price_filters.append(Ad.price >= search_params.min_price)
-            applied_filters["min_price"] = search_params.min_price
-        
-        if search_params.max_price is not None:
-            price_filters.append(Ad.price <= search_params.max_price)
-            applied_filters["max_price"] = search_params.max_price
-        
-        if price_filters:
-            stmt = stmt.where(and_(*price_filters))
-        
-        # 7. ФИЛЬТРАЦИЯ ПО СОСТОЯНИЮ ТОВАРА (MULTI-SELECT)
-        if search_params.conditions:
-            condition_filters = []
-            for condition in search_params.conditions:
-                condition_filters.append(Ad.condition == condition)
-            
-            if condition_filters:
-                stmt = stmt.where(or_(*condition_filters))
-                applied_filters["conditions"] = search_params.conditions
-        
-        # 8. ФИЛЬТРАЦИЯ ПО РАЗМЕРАМ (MULTI-SELECT + SMART MATCHING)
-        if search_params.sizes:
-            size_filters = []
-            
-            for size in search_params.sizes:
-                size_lower = size.lower().strip()
-                
-                # Умное сопоставление размеров
-                if size_lower in ["xs", "s", "m", "l", "xl", "xxl"]:
-                    # Для буквенных размеров ищем точное совпадение
-                    size_filters.append(
-                        or_(
-                            Ad.size.ilike(f"%{size_lower}%"),
-                            Ad.size.ilike(f"%{size_lower.upper()}%")
-                        )
-                    )
-                else:
-                    # Для числовых размеров ищем частичное совпадение
-                    size_filters.append(Ad.size.ilike(f"%{size_lower}%"))
-            
-            if size_filters:
-                stmt = stmt.where(or_(*size_filters))
-                applied_filters["sizes"] = search_params.sizes
-        
-        # 9. ФИЛЬТРАЦИЯ ПО ЦВЕТАМ (JSON ARRAY CONTAINS)
-        if search_params.colors:
-            # Для PostgreSQL используем оператор @>
-            if db.bind.dialect.name == 'postgresql':
-                # Преобразуем цвета в lowercase для поиска
-                colors_lower = [color.lower() for color in search_params.colors]
-                
-                # Создаем условие для каждого цвета
-                color_conditions = []
-                for color in colors_lower:
-                    # Ищем цвет в JSON массиве
-                    color_conditions.append(
-                        Ad.colors.op('@>')([color])
-                    )
-                
-                if color_conditions:
-                    stmt = stmt.where(or_(*color_conditions))
-            else:
-                # Для SQLite и других БД используем LIKE
-                color_conditions = []
-                for color in search_params.colors:
-                    color_lower = color.lower()
-                    color_conditions.append(
-                        cast(Ad.colors, String).ilike(f'%"{color_lower}"%')
-                    )
-                
-                if color_conditions:
-                    stmt = stmt.where(or_(*color_conditions))
-            
-            applied_filters["colors"] = search_params.colors
-        
-        # 10. ТЕКСТОВЫЙ ПОИСК (ПОЛНОТЕКСТОВЫЙ ИЛИ LIKE)
-        if search_params.query:
-            query_clean = search_params.query.strip()
-            
-            # Разбиваем запрос на слова
-            words = re.findall(r'\w+', query_clean.lower())
-            
-            if words:
-                # Для PostgreSQL используем полнотекстовый поиск
-                if db.bind.dialect.name == 'postgresql' and len(words) > 1:
-                    # Создаем tsquery
-                    ts_query = " & ".join(words)
-                    stmt = stmt.where(
-                        text(f"to_tsvector('russian', coalesce(title, '') || ' ' || "
-                             f"coalesce(description, '') || ' ' || "
-                             f"coalesce(tags, '')) @@ to_tsquery('russian', :ts_query)")
-                    ).params(ts_query=ts_query)
-                else:
-                    # Для других БД используем LIKE по каждому слову
-                    like_conditions = []
-                    for word in words:
-                        if len(word) > 2:  # Игнорируем слишком короткие слова
-                            like_conditions.extend([
-                                Ad.title.ilike(f"%{word}%"),
-                                Ad.description.ilike(f"%{word}%"),
-                                Ad.tags.ilike(f"%{word}%")
-                            ])
-                    
-                    if like_conditions:
-                        stmt = stmt.where(or_(*like_conditions))
-            
-            applied_filters["query"] = search_params.query
-        
-        # 11. ДОПОЛНИТЕЛЬНЫЕ ФИЛЬТРЫ
-        
-        # Фильтр по пользователю
-        if search_params.user_id:
-            stmt = stmt.where(Ad.user_id == search_params.user_id)
-            applied_filters["user_id"] = search_params.user_id
-        
-        # Только с изображениями
-        if search_params.has_images is True:
-            stmt = stmt.where(Ad.images.any())  # Есть хотя бы одно изображение
-            applied_filters["has_images"] = True
-        
-        # Возможен торг
-        if search_params.is_negotiable is not None:
-            stmt = stmt.where(Ad.is_negotiable == search_params.is_negotiable)
-            applied_filters["is_negotiable"] = search_params.is_negotiable
-        
-        # 12. ПОДСЧЕТ ОБЩЕГО КОЛИЧЕСТВА (до пагинации)
-        count_stmt = select(func.count()).select_from(stmt.subquery())
-        total_result = await db.execute(count_stmt)
-        total = total_result.scalar() or 0
-        
-        # 13. СОРТИРОВКА
-        if search_params.sort_by == SortBy.NEWEST:
-            stmt = stmt.order_by(desc(Ad.created_at))
-        elif search_params.sort_by == SortBy.OLDEST:
-            stmt = stmt.order_by(asc(Ad.created_at))
-        elif search_params.sort_by == SortBy.PRICE_ASC:
-            stmt = stmt.order_by(asc(Ad.price))
-        elif search_params.sort_by == SortBy.PRICE_DESC:
-            stmt = stmt.order_by(desc(Ad.price))
-        elif search_params.sort_by == SortBy.POPULAR:
-            # Композитная сортировка: по просмотрам и избранным
-            stmt = stmt.order_by(
-                desc(Ad.view_count),
-                desc(Ad.favorite_count),
-                desc(Ad.created_at)
-            )
-        elif search_params.sort_by == SortBy.VIEWS:
-            stmt = stmt.order_by(desc(Ad.view_count))
-        elif search_params.sort_by == SortBy.FAVORITES:
-            stmt = stmt.order_by(desc(Ad.favorite_count))
-        
-        applied_filters["sort_by"] = search_params.sort_by.value
-        
-        # 14. ПАГИНАЦИЯ
-        stmt = stmt.offset(search_params.skip).limit(search_params.limit)
-        applied_filters["pagination"] = {
-            "skip": search_params.skip,
-            "limit": search_params.limit,
-            "total": total
-        }
-        
-        # Выполняем запрос
-        result = await db.execute(stmt)
-        ads = result.scalars().all()
-        
-        return {
-            "ads": ads,
-            "total": total,
-            "filters_applied": applied_filters,
-            "has_more": (search_params.skip + search_params.limit) < total
-        }
-        
-        # # Базовые условия
-        # if search_data.only_active:
-        #     stmt = stmt.where(Ad.is_active == True)
-        
-        # # 1. Текстовый поиск
-        # if search_data.query:
-        #     search_query = f"%{search_data.query}%"
-        #     stmt = stmt.where(
-        #         or_(
-        #             Ad.title.ilike(search_query),
-        #             Ad.description.ilike(search_query),
-        #             Ad.tags.ilike(search_query),
-        #             Ad.brand.ilike(search_query)
-        #         )
-        #     )
-        
-        # # 2. Фильтр по цене
-        # if search_data.min_price is not None:
-        #     stmt = stmt.where(Ad.price >= search_data.min_price)
-        # if search_data.max_price is not None:
-        #     stmt = stmt.where(Ad.price <= search_data.max_price)
-        
-        # # 3. Фильтр по типу объявления
-        # if search_data.ad_types:
-        #     type_conditions = []
-        #     for ad_type in search_data.ad_types:
-        #         type_conditions.append(Ad.type == ad_type.value)
-        #     if type_conditions:
-        #         stmt = stmt.where(or_(*type_conditions))
-        
-        # # 4. Фильтр по состоянию
-        # if search_data.conditions:
-        #     condition_filters = []
-        #     for condition in search_data.conditions:
-        #         condition_filters.append(Ad.condition == condition.value)
-        #     if condition_filters:
-        #         stmt = stmt.where(or_(*condition_filters))
-        
-        # # 5. Фильтр по размеру
-        # if search_data.sizes:
-        #     size_filters = []
-        #     for size in search_data.sizes:
-        #         size_filters.append(Ad.size.ilike(f"%{size}%"))
-        #     if size_filters:
-        #         stmt = stmt.where(or_(*size_filters))
-        
-        # # 6. Фильтр по бренду
-        # if search_data.brands:
-        #     brand_filters = []
-        #     for brand in search_data.brands:
-        #         brand_filters.append(Ad.brand.ilike(f"%{brand}%"))
-        #     if brand_filters:
-        #         stmt = stmt.where(or_(*brand_filters))
-        
-        # # 7. Фильтр по цвету
-        # if search_data.colors:
-        #     color_filters = []
-        #     for color in search_data.colors:
-        #         color_filters.append(Ad.color.ilike(f"%{color}%"))
-        #     if color_filters:
-        #         stmt = stmt.where(or_(*color_filters))
-        
-        # # 8. Фильтр по местоположению
-        # if search_data.location:
-        #     stmt = stmt.where(Ad.location.ilike(f"%{search_data.location}%"))
-        
-        # # 9. Фильтр по дате создания
-        # if search_data.created_after:
-        #     stmt = stmt.where(Ad.created_at >= search_data.created_after)
-        # if search_data.created_before:
-        #     stmt = stmt.where(Ad.created_at <= search_data.created_before)
-        
-        # # 10. Сложная фильтрация по категориям
-        # if search_data.categories:
-        #     category_conditions = search_data.categories.get_filter_conditions()
-        #     if category_conditions:
-        #         # Здесь нужно преобразовать строковые условия в SQLAlchemy
-        #         # Это упрощенный пример, в реальности нужно использовать text() или другой подход
-        #         for condition in category_conditions:
-        #             # Для простоты предполагаем, что category хранится как строка с тегами
-        #             # Например: "mens,casual,summer"
-        #             pass
-        
-        # # 11. Только с изображениями
-        # if search_data.only_with_images:
-        #     stmt = stmt.where(Ad.images.any())
-        
-        # # 12. Только с возможностью торга
-        # if search_data.only_negotiable is not None:
-        #     stmt = stmt.where(Ad.is_negotiable == search_data.only_negotiable)
-        
-        # # 13. Только свежие
-        # if search_data.only_fresh:
-        #     from datetime import datetime, timedelta
-        #     week_ago = datetime.utcnow() - timedelta(days=7)
-        #     stmt = stmt.where(Ad.created_at >= week_ago)
-        
-        # # 14. ПРИМЕНЕНИЕ СОРТИРОВКИ
-        # sort_expressions = search_data.get_sort_by()
-        
-        # # Преобразуем строковые выражения в SQLAlchemy order_by
-        # for sort_expr in sort_expressions:
-        #     if "created_at DESC" in sort_expr:
-        #         stmt = stmt.order_by(desc(Ad.created_at))
-        #     elif "created_at ASC" in sort_expr:
-        #         stmt = stmt.order_by(asc(Ad.created_at))
-        #     elif "price ASC" in sort_expr:
-        #         stmt = stmt.order_by(asc(Ad.price))
-        #     elif "price DESC" in sort_expr:
-        #         stmt = stmt.order_by(desc(Ad.price))
-        #     elif "popular" in sort_expr.lower():
-        #         # Сложная сортировка по популярности
-        #         stmt = stmt.order_by(
-        #             desc((Ad.view_count * 0.5) + (Ad.favorite_count * 0.5))
-        #         )
-        #     elif "last_viewed" in sort_expr:
-        #         stmt = stmt.order_by(desc(Ad.last_viewed))
-        #     elif "updated_at" in sort_expr:
-        #         stmt = stmt.order_by(desc(Ad.updated_at))
-        #     elif "expires_at" in sort_expr:
-        #         stmt = stmt.order_by(asc(Ad.expires_at))
-        
-        # # 15. ПАГИНАЦИЯ
-        # stmt = stmt.offset(search_data.get_skip()).limit(search_data.get_limit())
-        
-        # # Выполняем запрос
-        # result = await db.execute(stmt)
-        # ads = result.scalars().all()
-        
-        # # Получаем общее количество для пагинации
-        # count_stmt = select(func.count()).select_from(stmt.subquery())
-        # total_result = await db.execute(count_stmt)
-        # total_count = total_result.scalar()
-        
-        # return {
-        #     "ads": ads,
-        #     "total": total_count,
-        #     "page": search_data.page,
-        #     "per_page": search_data.per_page,
-        #     "total_pages": (total_count + search_data.per_page - 1) // search_data.per_page
-        # }
-    
-    @staticmethod
-    async def get_filter_options(db: AsyncSession) -> dict[str, list[str]]:
-        """
-        Получить доступные опции для фильтров
-        (для заполнения выпадающих списков на фронтенде)
-        """
-        # Основные категории
-        main_categories_stmt = select(
-            func.distinct(Ad.main_category)
-        ).where(
-            Ad.main_category.isnot(None),
-            Ad.is_active == True
-        ).order_by(Ad.main_category)
-        
-        # Подкатегории
-        sub_categories_stmt = select(
-            func.distinct(Ad.sub_category)
-        ).where(
-            Ad.sub_category.isnot(None),
-            Ad.is_active == True
-        ).order_by(Ad.sub_category)
-        
-        # Сезоны
-        seasons_stmt = select(
-            func.distinct(Ad.season)
-        ).where(
-            Ad.season.isnot(None),
-            Ad.is_active == True
-        ).order_by(Ad.season)
-        
-        # Состояния товара
-        conditions_stmt = select(
-            func.distinct(Ad.condition)
-        ).where(
-            Ad.condition.isnot(None),
-            Ad.is_active == True
-        ).order_by(Ad.condition)
-        
-        # Размеры (уникальные значения)
-        sizes_stmt = select(
-            func.distinct(Ad.size)
-        ).where(
-            Ad.size.isnot(None),
-            Ad.size != '',
-            Ad.is_active == True
-        ).order_by(Ad.size)
-        
-        # Цвета (собираем из всех объявлений)
-        colors_stmt = select(
-            func.jsonb_array_elements_text(Ad.colors).label('color')
-        ).where(
-            Ad.colors.isnot(None),
-            Ad.is_active == True
-        ).distinct().order_by('color')
-        
-        # Выполняем все запросы параллельно
-        results = await asyncio.gather(
-            db.execute(main_categories_stmt),
-            db.execute(sub_categories_stmt),
-            db.execute(seasons_stmt),
-            db.execute(conditions_stmt),
-            db.execute(sizes_stmt),
-            db.execute(colors_stmt)
-        )
-        
-        # Обрабатываем результаты
-        main_categories = [r[0] for r in results[0].all() if r[0]]
-        sub_categories = [r[0] for r in results[1].all() if r[0]]
-        seasons = [r[0] for r in results[2].all() if r[0]]
-        conditions = [r[0] for r in results[3].all() if r[0]]
-        sizes = [r[0] for r in results[4].all() if r[0]]
-        colors = [r[0] for r in results[5].all() if r[0]]
-        
-        # Ценовые диапазоны
-        price_stats_stmt = select(
-            func.min(Ad.price).label('min_price'),
-            func.max(Ad.price).label('max_price'),
-            func.avg(Ad.price).label('avg_price')
-        ).where(Ad.is_active == True)
-        
-        price_result = await db.execute(price_stats_stmt)
-        price_stats = price_result.first()
-        
-        return {
-            "main_categories": main_categories,
-            "sub_categories": sub_categories,
-            "seasons": seasons,
-            "conditions": conditions,
-            "sizes": sorted(set(sizes)),  # Удаляем дубликаты
-            "colors": sorted(set(colors)),  # Удаляем дубликаты
-            "price_range": {
-                "min": float(price_stats.min_price) if price_stats.min_price else 0,
-                "max": float(price_stats.max_price) if price_stats.max_price else 0,
-                "avg": float(price_stats.avg_price) if price_stats.avg_price else 0
-            }
-        }
+    #     return {
+    #         "main_categories": main_categories,
+    #         "sub_categories": sub_categories,
+    #         "seasons": seasons,
+    #         "conditions": conditions,
+    #         "sizes": sorted(set(sizes)),  # Удаляем дубликаты
+    #         "colors": sorted(set(colors)),  # Удаляем дубликаты
+    #         "price_range": {
+    #             "min": float(price_stats.min_price) if price_stats.min_price else 0,
+    #             "max": float(price_stats.max_price) if price_stats.max_price else 0,
+    #             "avg": float(price_stats.avg_price) if price_stats.avg_price else 0
+    #         }
+    #     }
 
     @staticmethod
     async def get_sorted_ads(
@@ -1248,4 +1257,3 @@ class AdService:
             "updated_at": ad.updated_at,
             "status": ad.status if ad.status else "unknown"
         }
->>>>>>> e55ae645be148cf1b0ffa1f6267a841ae77f241b
