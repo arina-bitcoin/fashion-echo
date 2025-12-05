@@ -1,101 +1,28 @@
-# # from datetime import datetime, timedelta
-# # from typing import Optional
-# # import jwt  # Используем PyJWT вместо python-jose
-# # from passlib.context import CryptContext
-# # from Backend.app.config import settings
+from __future__ import annotations
 
-# # pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+from datetime import datetime, timedelta, timezone
+from typing import Optional, Any, Dict, Union
 
-# # def verify_password(plain_password: str, hashed_password: str) -> bool:
-# #     return pwd_context.verify(plain_password, hashed_password)
-
-# # def get_password_hash(password: str) -> str:
-# #     return pwd_context.hash(password)
-
-# # def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-# #     to_encode = data.copy()
-# #     if expires_delta:
-# #         expire = datetime.utcnow() + expires_delta
-# #     else:
-# #         expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    
-# #     to_encode.update({"exp": expire, "type": "access"})
-# #     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-
-# # def create_refresh_token(data: dict) -> str:
-# #     to_encode = data.copy()
-# #     expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-# #     to_encode.update({"exp": expire, "type": "refresh"})
-# #     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-
-# # def verify_token(token: str) -> Optional[dict]:
-# #     try:
-# #         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-# #         return payload
-# #     except jwt.InvalidTokenError:
-# #         return None
-
-# from datetime import datetime, timedelta
-# from typing import Optional
-# from jose import JWTError
-# import jwt
-# from passlib.context import CryptContext
-# from Backend.app.config import settings
-
-# # Настройка для хеширования паролей
-# pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# def verify_password(plain_password: str, hashed_password: str) -> bool:
-#     return pwd_context.verify(plain_password, hashed_password)
-
-# def get_password_hash(password: str) -> str:
-#     return pwd_context.hash(password)
-
-# def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-#     to_encode = data.copy()
-#     if expires_delta:
-#         expire = datetime.utcnow() + expires_delta
-#     else:
-#         expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    
-#     to_encode.update({"exp": expire, "type": "access"})
-#     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-#     return encoded_jwt
-
-# def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None):
-#     to_encode = data.copy()
-#     if expires_delta:
-#         expire = datetime.utcnow() + expires_delta
-#     else:
-#         expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    
-#     to_encode.update({"exp": expire, "type": "refresh"})
-#     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-#     return encoded_jwt
-
-# def verify_token(token: str) -> Optional[dict]:
-#     try:
-#         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-#         return payload
-#     except JWTError:
-#         return None
-
-from datetime import datetime, timedelta
-from typing import Optional
 import jwt
 from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
-from Backend.app.config import settings
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-# Настройка для хеширования паролей
-# pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+from Backend.app.config import settings
+from Backend.app.core.database import get_db
+from Backend.app.models.user import User
+
+# ---------- Password hashing (твоя конфигурация) ----------
 pwd_context = CryptContext(
-    schemes=["argon2", "bcrypt"], 
+    schemes=["argon2", "bcrypt"],
     deprecated="auto",
     argon2__time_cost=3,
     argon2__memory_cost=65536,
     argon2__parallelism=1,
-    argon2__hash_len=32
+    argon2__hash_len=32,
 )
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -104,31 +31,116 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    
-    to_encode.update({"exp": expire, "type": "access"})
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    return encoded_jwt
+# ---------- Политика сложности пароля ----------
+def validate_password_strength(password: str) -> None:
+    """
+    Минимальная политика: длина >= 8, содержит буквы и цифры.
+    При необходимости расширь (спецсимволы, верхний/нижний регистр и т.п.).
+    """
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Password too short (min 8)")
+    if password.isdigit() or password.isalpha():
+        raise HTTPException(status_code=400, detail="Password must contain letters and digits")
 
-def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+# ---------- JWT helpers ----------
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+
+def _exp_utc_after(delta: timedelta) -> datetime:
+    # используем tz-aware datetime, PyJWT его понимает
+    return datetime.now(timezone.utc) + delta
+
+def _encode_jwt(payload: Dict[str, Any]) -> str:
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+def _decode_jwt(token: str) -> Dict[str, Any]:
+    try:
+        return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    except InvalidTokenError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+        ) from e
+
+def create_access_token(
+    data_or_subject: Union[Dict[str, Any], str, int],
+    expires_delta: Optional[timedelta] = None,
+    extra: Optional[Dict[str, Any]] = None,
+) -> str:
+    """
+    Универсальный helper:
+    - если передан dict -> используется как основа payload
+    - если передан subject (str|int) -> кладём в payload как "sub"
+    В обоих случаях добавляем {"type": "access", "exp": ...}.
+    """
+    if isinstance(data_or_subject, dict):
+        to_encode: Dict[str, Any] = dict(data_or_subject)  # копия
     else:
-        expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    
+        to_encode = {"sub": str(data_or_subject)}
+
+    if extra:
+        to_encode.update(extra)
+
+    expire = _exp_utc_after(expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode.update({"exp": expire, "type": "access"})
+    return _encode_jwt(to_encode)
+
+def create_refresh_token(
+    data_or_subject: Union[Dict[str, Any], str, int],
+    expires_delta: Optional[timedelta] = None,
+    extra: Optional[Dict[str, Any]] = None,
+) -> str:
+    """
+    Аналогично create_access_token, но type='refresh' и свой срок.
+    """
+    if isinstance(data_or_subject, dict):
+        to_encode: Dict[str, Any] = dict(data_or_subject)
+    else:
+        to_encode = {"sub": str(data_or_subject)}
+
+    if extra:
+        to_encode.update(extra)
+
+    expire = _exp_utc_after(expires_delta or timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS))
     to_encode.update({"exp": expire, "type": "refresh"})
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    return encoded_jwt
+    return _encode_jwt(to_encode)
 
 def verify_token(token: str) -> Optional[dict]:
+    """
+    Возвращает payload либо None (без исключения).
+    Удобно там, где не хочется ронять 401.
+    """
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        return payload
+        return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
     except InvalidTokenError:
         return None
+
+# Оставляем совместимые алиасы, если где-то в коде вызывалась "вариант-2" сигнатура
+def create_access_token_by_subject(
+    subject: Union[str, int],
+    expires_delta: Optional[timedelta] = None,
+    extra: Optional[Dict[str, Any]] = None,
+) -> str:
+    return create_access_token(subject, expires_delta=expires_delta, extra=extra)
+
+# ---------- FastAPI dependency ----------
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    payload = _decode_jwt(token)
+
+    # Можно (опционально) требовать именно access-токен
+    token_type = payload.get("type")
+    if token_type != "access":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Access token required")
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
+
+    res = await db.execute(select(User).where(User.id == int(user_id)))
+    user = res.scalar_one_or_none()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive or not found")
+
+    return user
