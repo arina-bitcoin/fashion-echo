@@ -38,8 +38,18 @@ class SecondhandBase(BaseModel):
 
     @field_validator('phone')
     def validate_phone(cls, v):
-        if v is not None and not v.replace('+', '').replace(' ', '').replace('-', '').isdigit():
-            raise ValueError('Phone must contain only digits and valid symbols')
+        if v is not None:
+            cleaned = (
+                v.replace('+', '')
+                 .replace(' ', '')
+                 .replace('-', '')
+                 .replace('(', '')
+                 .replace(')', '')
+            )
+            if not cleaned.isdigit():
+                raise ValueError(
+                    'Phone must contain only digits and valid symbols (+, -, space, parentheses)'
+                )
         return v
 
 

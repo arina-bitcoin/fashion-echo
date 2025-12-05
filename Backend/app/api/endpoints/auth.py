@@ -1,16 +1,31 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response, Query, Body, Request
-from pydantic import EmailStr
-from typing import Any, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, update
+from __future__ import annotations
+
 from datetime import datetime, timezone
+from typing import Optional
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    status,
+    Response,
+    Query,
+    Body,
+    Request,
+)
+from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import EmailStr
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from Backend.app.core.database import get_db
 from Backend.app.core.security import (
-    verify_password, 
-    get_password_hash, 
-    create_access_token, 
+    verify_password,
+    get_password_hash,
+    create_access_token,
     create_refresh_token,
-    verify_token
+    verify_token,
+    validate_password_strength,
 )
 from Backend.app.models.user import User
 from Backend.app.schemas.token import Token, RefreshTokenRequest, LoginRequest
@@ -18,73 +33,76 @@ from Backend.app.schemas.user import UserCreate, UserResponse, UserWithAvatarRes
 from Backend.app.dependencies import get_current_user
 from Backend.app.services.file_service import file_service
 
-router = APIRouter()
+router = APIRouter(tags=["auth"])
+
 
 @router.post("/register", response_model=UserResponse)
-async def register(
-    user_data: UserCreate,
-    db: AsyncSession = Depends(get_db)
-):
-    # Проверка существования пользователя
-    result = await db.execute(select(User).filter(User.email == user_data.email))
-    existing_user = result.scalar_one_or_none()
-    if existing_user:
+async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
+    # Поддержка как user_data.name, так и user_data.full_name
+    name = getattr(user_data, "name", None) or getattr(user_data, "full_name", None)
+
+    res = await db.execute(select(User).where(User.email == user_data.email))
+    existing = res.scalar_one_or_none()
+    if existing:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
         )
-    
-    # Создание пользователя
-    hashed_password = get_password_hash(user_data.password)
-    db_user = User(
+
+    validate_password_strength(user_data.password)
+
+    user = User(
         email=user_data.email,
-        hashed_password=hashed_password,
-        name=user_data.name,
+        hashed_password=get_password_hash(user_data.password),
+        name=name,
         phone=user_data.phone,
-        is_active = True,
-        is_verified = False,
+        is_active=True,
+        is_verified=False,
     )
-    
-    db.add(db_user)
+    db.add(user)
     await db.commit()
-    await db.refresh(db_user)
-    
-    return db_user
+    await db.refresh(user)
+    return user
+
 
 @router.post("/login", response_model=Token)
 async def login(
-    # Вариант 1 – как в тестах: query-параметры
-    email: Optional[EmailStr] = Query(None),
-    password: Optional[str] = Query(None),
-    # Вариант 2 – как в основном приложении: JSON body
+    # Основной путь — форм-логин (OAuth2PasswordRequestForm)
+    form_data: Optional[OAuth2PasswordRequestForm] = Depends(None),
+    # Доп. пути на случай клиентов/тестов: JSON и query
     login_data: Optional[LoginRequest] = Body(None),
+    email_q: Optional[EmailStr] = Query(None),
+    password_q: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Логин: поддерживает и JSON body (LoginRequest),
-    и query-параметры (email/password), как в интеграционном тесте.
+    Поддерживаем 3 способа передать логин/пароль (в порядке приоритета):
+    1) form-data (OAuth2PasswordRequestForm)
+    2) JSON body (LoginRequest)
+    3) Query-параметры ?email=&password=
     """
+    email: Optional[str] = None
+    password: Optional[str] = None
 
-    # Определяем откуда брать данные
-    if login_data is not None:
-        email_value = login_data.email
-        password_value = login_data.password
+    if form_data is not None:
+        email = form_data.username
+        password = form_data.password
+    elif login_data is not None:
+        email = login_data.email
+        password = login_data.password
     else:
-        email_value = email
-        password_value = password
+        email = email_q
+        password = password_q
 
-    # Если каких-то данных нет – 422, как и раньше
-    if not email_value or not password_value:
+    if not email or not password:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="email and password are required",
         )
 
-    # Поиск пользователя
-    result = await db.execute(select(User).filter(User.email == email_value))
-    user = result.scalar_one_or_none()
+    res = await db.execute(select(User).where(User.email == email))
+    user = res.scalar_one_or_none()
 
-    if not user or not verify_password(password_value, user.hashed_password):
+    if not user or not verify_password(password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -92,95 +110,62 @@ async def login(
 
     if not user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Inactive user",
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user"
         )
-    
-    # Обновляем время последнего входа (не блокируем создание токенов)
-    # ОПТИМИЗАЦИЯ: делаем обновление last_login необязательным, чтобы не замедлять логин
+
+    # Обновляем отметку входа (не критично, если не удастся)
     try:
         user.last_login = datetime.now(timezone.utc)
         await db.commit()
-    except Exception as e:
-        # Если обновление не удалось - не критично, продолжаем логин
-        print(f"⚠️ Failed to update last_login: {e}")
-    
-    # Убрали db.refresh - он не нужен и вызывает дополнительный запрос к БД
-    
-    # Создание токенов
+    except Exception:
+        pass
 
-    # # Обновляем время последнего входа
-    # stmt = (
-    #     update(User)
-    #     .where(User.id == user.id)
-    #     .values(last_login=func.now())
-    #     .execution_options(synchronize_session="fetch")
-    # )
-    # await db.execute(stmt)
-    # await db.commit()
-
-    # # Создание токенов – как было
     access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
     refresh_token = create_refresh_token(data={"sub": str(user.id)})
 
-    return Token(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        token_type="bearer",
-    )
+    return Token(access_token=access_token, refresh_token=refresh_token, token_type="bearer")
+
 
 @router.post("/refresh", response_model=Token)
 async def refresh_token(
-    refresh_data: RefreshTokenRequest,
-    db: AsyncSession = Depends(get_db)
+    refresh_data: RefreshTokenRequest, db: AsyncSession = Depends(get_db)
 ):
     payload = verify_token(refresh_data.refresh_token)
     if not payload or payload.get("type") != "refresh":
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
         )
-    
+
     user_id = int(payload.get("sub"))
-    result = await db.execute(select(User).filter(User.id == user_id))
-    user = result.scalar_one_or_none()
+    res = await db.execute(select(User).where(User.id == user_id))
+    user = res.scalar_one_or_none()
     if not user or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or inactive"
+            detail="User not found or inactive",
         )
-    
-    # Создание новых токенов
+
     access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
-    refresh_token = create_refresh_token(data={"sub": str(user.id)})
-    
+    new_refresh_token = create_refresh_token(data={"sub": str(user.id)})
+
     return Token(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        token_type="bearer"
+        access_token=access_token, refresh_token=new_refresh_token, token_type="bearer"
     )
 
 @router.post("/logout")
-async def logout(
-    response: Response,
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Выход пользователя.
-    На клиенте нужно удалить токены из localStorage/sessionStorage.
-    """
+async def logout(response: Response, current_user: User = Depends(get_current_user)):
+    # Клиент должен удалить токены у себя (localStorage/sessionStorage)
     return {"message": "Successfully logged out"}
 
 @router.get("/me", response_model=UserWithAvatarResponse)
 async def get_current_user_info(
-    request: Request,
-    current_user: User = Depends(get_current_user)
+    request: Request, current_user: User = Depends(get_current_user)
 ):
-    """Получение данных текущего пользователя"""
     user_data = UserWithAvatarResponse.model_validate(current_user)
-    
-    # Добавляем URL аватара
     if current_user.avatar:
         user_data.avatar_url = file_service.get_avatar_url(current_user.avatar, request)
-    
     return user_data
+
+@router.get("/me/basic")
+async def me_basic(current_user: User = Depends(get_current_user)):
+    return {"id": current_user.id, "email": current_user.email}

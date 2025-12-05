@@ -1,117 +1,154 @@
+# Backend/tests/conftest.py
+import io
+from uuid import uuid4
+from datetime import datetime, timedelta, timezone
+
+import jwt  # PyJWT
+import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from Backend.app.core.database import Base, get_db
 from Backend.app.main import app
+from Backend.app.config import settings
+from Backend.app.core.database import async_session_maker
 from Backend.app.models.user import User
-from Backend.app.core.security import get_password_hash
-from Backend.app.core.security import create_access_token
+from Backend.app.models.ad import Ad
 
 
-
-# --- ТЕСТОВАЯ БД: отдельный async-движок ---
-
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
-
-engine_test = create_async_engine(
-    TEST_DATABASE_URL,
-    echo=False,
-    future=True,
-)
-
-AsyncSessionLocal = async_sessionmaker(
-    bind=engine_test,
-    expire_on_commit=False,
-    class_=AsyncSession,
-)
-
-
-# --- Перед КАЖДЫМ тестом: пересоздаём схему ---
-
-@pytest_asyncio.fixture(autouse=True)
-async def prepare_db():
+# ---------- ПАТЧИ БЕЗОПАСНОСТИ ДЛЯ ТЕСТОВ (убираем argon2) ----------
+@pytest.fixture(autouse=True)
+def _patch_password_hash_and_verify(monkeypatch):
     """
-    Полностью пересоздаём структуру БД перед каждым тестом.
-    Гарантия, что ни один пользователь `newuser@example.com`
-    не "прилетит" из прошлых тестов/сидов.
+    В проде используется argon2, но в тестовой среде может не быть backend'а.
+    Подменяем функции, чтобы регистрация/логин не падали.
     """
-    async with engine_test.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
-    yield
-    # можно ничего не делать на teardown, но для чистоты:
-    async with engine_test.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+    from Backend.app.core import security
+
+    def fake_hash(_password: str) -> str:
+        return "hashed"  # фиксированная заглушка
+
+    def fake_verify(plain: str, hashed: str) -> bool:
+        # допускаем любой пароль, если сохранённая строка — наша заглушка
+        return hashed == "hashed"
+
+    monkeypatch.setattr(security, "get_password_hash", fake_hash, raising=True)
+    monkeypatch.setattr(security, "verify_password", fake_verify, raising=True)
 
 
-# --- Фикстура сессии для прямой работы с БД в тестах ---
-
-@pytest_asyncio.fixture
-async def db_session():
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.rollback()
-
-
-# --- Переопределяем зависимость get_db в приложении ---
-
+# ---------- ТЕСТОВЫЙ КЛИЕНТ ----------
 @pytest_asyncio.fixture
 async def client():
     """
-    AsyncClient, у которого get_db подменён на тестовую асинхронную сессию.
+    httpx >= 0.28: используем ASGITransport вместо app=...
     """
-
-    async def _get_db_override():
-        async with AsyncSessionLocal() as session:
-            try:
-                yield session
-            finally:
-                await session.rollback()
-
-    app.dependency_overrides[get_db] = _get_db_override
-
     transport = ASGITransport(app=app)
-
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
 
-    app.dependency_overrides.clear()
+
+# ---------- СЕССИЯ БД ----------
+@pytest_asyncio.fixture
+async def db_session() -> AsyncSession:
+    async with async_session_maker() as session:
+        yield session
 
 
-# --- Тестовый пользователь для остальных интеграционных тестов ---
-
+# ---------- ТЕСТОВЫЕ ДАННЫЕ ----------
 @pytest_asyncio.fixture
 async def test_user(db_session: AsyncSession) -> User:
     """
-    Создаём юзера с ИМЕЙЛОМ, ОТЛИЧНЫМ от newuser@example.com.
-    Этот юзер нужен для других интеграционных тестов (users, ads и т.п.).
+    Создаём юзера с уникальным email, чтобы не ловить UNIQUE при многократном использовании.
+    Пароль не используется напрямую (логин/регистрация идут через наши заглушки).
     """
-    hashed = get_password_hash("password123")
-
-    user = User(
-        email="test@example.com",      # ВАЖНО: НЕ newuser@example.com
+    u = User(
+        email=f"test+{uuid4().hex}@example.com",
+        hashed_password="hashed",   # соответствует fake_hash()
         name="Test User",
-        hashed_password=hashed,
+        phone=None,
         is_active=True,
-        is_verified=True,
+        is_verified=False,
     )
-    db_session.add(user)
+    db_session.add(u)
     await db_session.commit()
-    await db_session.refresh(user)
-    return user
+    await db_session.refresh(u)
+    return u
+
+
+@pytest_asyncio.fixture
+async def test_ad(db_session: AsyncSession, test_user: User) -> Ad:
+    ad = Ad(
+        title="Jacket",
+        description="Nice jacket",
+        category="clothes",
+        price=1000,
+        user_id=test_user.id,
+        type="sell",
+        size="M",
+        condition="used",
+        city="TestCity",
+    )
+    db_session.add(ad)
+    await db_session.commit()
+    await db_session.refresh(ad)
+    return ad
+
+
+# ---------- JWT (в обход продового create_access_token) ----------
+def _make_access_token_for(user: User, minutes: int | None = None) -> str:
+    exp_delta = timedelta(
+        minutes=minutes if minutes is not None else settings.ACCESS_TOKEN_EXPIRE_MINUTES
+    )
+    payload = {
+        "sub": str(user.id),
+        "email": user.email,
+        "type": "access",
+        "exp": datetime.now(timezone.utc) + exp_delta,
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
 
 @pytest_asyncio.fixture
 async def auth_headers(test_user: User):
-    """
-    Возвращает заголовки Authorization для авторизованного пользователя test_user.
-    Используется в интеграционных тестах (ads, files, users).
-    """
-    access_token = create_access_token(
-        data={"sub": str(test_user.id), "email": test_user.email}
+    token = _make_access_token_for(test_user)
+    return {"Authorization": f"Bearer {token}"}
+
+
+# ---------- Мелкие утилиты для загрузки ----------
+@pytest.fixture
+def small_png_bytes() -> bytes:
+    # 1x1 PNG
+    return (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00"
+        b"\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0bIDATx\x9cc`\x00\x00\x00\x02\x00\x01"
+        b"\xe2!\xbc3\x00\x00\x00\x00IEND\xaeB`\x82"
     )
-    return {"Authorization": f"Bearer {access_token}"}
+
+
+@pytest.fixture
+def small_png_file(small_png_bytes: bytes):
+    return ("test.png", io.BytesIO(small_png_bytes), "image/png")
+
+
+@pytest.fixture(autouse=True)
+def _patch_password_hash_and_verify(monkeypatch):
+    # Патчим как исходный модуль безопасности, так и ссылки,
+    # импортированные непосредственно внутрь эндпоинтов auth.
+    from Backend.app.core import security
+    from Backend.app.api.endpoints import auth as auth_ep
+
+    def fake_hash(_password: str) -> str:
+        # фиктивный хэш, чтобы не тянуть argon2/bcrypt и не падать в тестах
+        return "hashed"
+
+    def fake_verify(plain: str, hashed: str) -> bool:
+        # считаем корректным любой пароль, если в БД хранится "hashed"
+        return hashed == "hashed"
+
+    # патчим исходный модуль безопасности
+    monkeypatch.setattr(security, "get_password_hash", fake_hash, raising=True)
+    monkeypatch.setattr(security, "verify_password", fake_verify, raising=True)
+
+    # ОБЯЗАТЕЛЬНО патчим ссылки, импортированные внутрь эндпоинтов
+    monkeypatch.setattr(auth_ep, "get_password_hash", fake_hash, raising=True)
+    monkeypatch.setattr(auth_ep, "verify_password", fake_verify, raising=True)
