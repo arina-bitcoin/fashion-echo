@@ -1086,7 +1086,7 @@ class AdService:
             FavoriteAd, Ad.id == FavoriteAd.ad_id
         ).where(
             FavoriteAd.user_id == user_id,
-            Ad.is_active == True
+            Ad.status == AdStatus.ACTIVE
         ).offset(skip).limit(limit).order_by(desc(FavoriteAd.created_at))
         
         result = await db.execute(stmt)
