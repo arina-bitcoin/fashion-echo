@@ -530,7 +530,14 @@ async def get_user_ads(
     Вернуть список объявлений текущего пользователя.
     Используется в интеграционном тесте TestUsersIntegration.test_get_user_ads.
     """
-    stmt = select(Ad).filter(Ad.user_id == current_user.id)
+    from sqlalchemy.orm import selectinload
+    
+    stmt = (
+        select(Ad)
+        .options(selectinload(Ad.images))  # ← ДОБАВЬТЕ ЭТО
+        .filter(Ad.user_id == current_user.id)
+        .order_by(Ad.created_at.desc())
+    )
     result = await db.execute(stmt)
     ads = list(result.scalars().all())
     return ads

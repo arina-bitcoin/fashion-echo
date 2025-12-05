@@ -105,7 +105,7 @@ async def get_ad(
         raise HTTPException(status_code=404, detail="Объявление не найдено или недоступно")
     
     # Увеличиваем счетчик просмотров
-    if ad.is_active:
+    if ad.status == AdStatus.ACTIVE:
         await AdService.increment_view_count(db, ad_id)
     
     # Добавляем информацию об избранном для авторизованных пользователей
@@ -300,7 +300,7 @@ async def get_filter_suggestions(
             Ad.size.isnot(None),
             Ad.size != '',
             Ad.size.ilike(f"%{query}%"),
-            Ad.is_active == True
+            Ad.status == AdStatus.ACTIVE
         ).order_by(Ad.size).limit(limit)
         
     elif field == "colors":
@@ -311,7 +311,7 @@ async def get_filter_suggestions(
             ).where(
                 Ad.colors.isnot(None),
                 func.jsonb_array_elements_text(Ad.colors).ilike(f"%{query}%"),
-                Ad.is_active == True
+                Ad.status == AdStatus.ACTIVE
             ).order_by('color').limit(limit)
         else:
             stmt = select(
@@ -319,7 +319,7 @@ async def get_filter_suggestions(
             ).where(
                 Ad.colors.isnot(None),
                 cast(Ad.colors, String).ilike(f'%"{query}%"'),
-                Ad.is_active == True
+                Ad.status == AdStatus.ACTIVE
             ).limit(limit)
     
     elif field == "main_categories":
@@ -328,7 +328,7 @@ async def get_filter_suggestions(
         ).where(
             Ad.main_category.isnot(None),
             cast(Ad.main_category, String).ilike(f"%{query}%"),
-            Ad.is_active == True
+            Ad.status == AdStatus.ACTIVE
         ).order_by(Ad.main_category).limit(limit)
     
     else:
@@ -378,24 +378,83 @@ async def get_filter_suggestions(
 
 # ---------- Объявления (авторизованные) ----------
 
+# @router.post("/", response_model=AdResponse, status_code=status.HTTP_201_CREATED)
+# async def create_ad(
+#     type: str = Form(...),
+#     title: str = Form(...),
+#     description: Optional[str] = Form(None),
+#     price: Optional[float] = Form(None),
+#     condition: Optional[str] = Form(None),
+#     main_category: Optional[str] = Form(None),
+#     sub_category: Optional[str] = Form(None),
+#     season: Optional[str] = Form(None),
+#     size: Optional[str] = Form(None),
+#     colors: Optional[str] = Form(None),  # JSON строка или список через запятую
+#     tags: Optional[str] = Form(None),
+#     brand: Optional[str] = Form(None),
+#     # Изображения загружаются отдельно
+#     images: Optional[list[UploadFile]] = File(None),
+#     db: AsyncSession = Depends(get_db),
+#     current_user: User = Depends(get_current_user),
+# ):
+#     colors_list = []
+#     if colors:
+#         try:
+#             # Пытаемся распарсить как JSON
+#             import json
+#             colors_list = json.loads(colors)
+#         except:
+#             # Или как список через запятую
+#             colors_list = [c.strip() for c in colors.split(',') if c.strip()]
+
+#     ad_data = AdCreate(
+#         type=type,
+#         title=title,
+#         description=description,
+#         price=price,
+#         condition=condition,
+#         main_category=main_category,
+#         sub_category=sub_category,
+#         season=season,
+#         size=size,
+#         colors=colors_list,
+#         tags=tags,
+#         brand=brand
+#     )
+
+#     print(f"📤 Создание объявления: {ad_data.title}")
+#     print(f"📸 Загружено изображений: {len(images) if images else 0}")
+
+#     """Создать новое объявление"""
+#     ad = await AdService.create_ad(db, ad_data, current_user.id)
+    
+#     # Загружаем изображения, если они есть
+#     if images:
+#         for image in images:
+#             await AdService.add_image_to_ad(
+#                 db=db,
+#                 ad_id=ad.id,
+#                 image_file=image,  # Сервису нужно будет обработать UploadFile
+#                 user_id=current_user.id,
+#                 is_admin=current_user.is_admin
+#             )
+    
+#     return ad
+
 @router.post("/", response_model=AdResponse, status_code=status.HTTP_201_CREATED)
 async def create_ad(
-    ad_data: AdCreate,
+    ad_data: AdCreate,  # ← ВОЗВРАЩАЕМ JSON, а не Form
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Создать новое объявление"""
-    # Логируем входящие данные для отладки
-    import json
-    print(f"📤 Создание объявления с изображениями: {json.dumps(ad_data.images, indent=2) if ad_data.images else 'Нет изображений'}")
+    
+    print(f"📤 Создание объявления: {ad_data.title}")
+    print(f"📤 Данные объявления: {ad_data.dict()}")
     
     ad = await AdService.create_ad(db, ad_data, current_user.id)
     
-    # Логируем сохраненные изображения
-    print(f"✅ Объявление создано. Сохраненные изображения: {json.dumps(ad.images if ad.images else [], indent=2)}")
-    
     return ad
-
 
 @router.put("/{ad_id}", response_model=AdResponse)
 async def update_ad_full(
@@ -454,24 +513,6 @@ async def delete_ad(
     )
     if not success:
         raise HTTPException(status_code=404, detail="Объявление не найдено или нет прав доступа")
-
-
-@router.get("/my/ads", response_model=list[AdResponse])
-async def get_my_ads(
-    status: Optional[str] = Query(None, description="Статус объявления: active, inactive"),    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Получить мои объявления"""
-    return await AdService.get_user_ads(
-        db=db,
-        user_id=current_user.id,
-        status=status,
-        skip=skip,
-        limit=limit
-    )
-
 
 @router.post("/{ad_id}/activate", response_model=AdResponse)
 async def activate_ad(

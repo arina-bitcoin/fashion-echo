@@ -63,8 +63,8 @@ class Ad(Base):
     # Существующие поля
     id = Column(Integer, primary_key=True)
     title = Column(String(200), nullable=False)
-    description = Column(Text, nullable=False)
-    price = Column(Numeric(10, 2), nullable=False)
+    description = Column(Text, nullable=False, default="")
+    price = Column(Numeric(10, 2), nullable=True, default=0.0)
     type = Column(String(20), nullable=False)  # sell, buy, exchange
     
     # Новые поля для фильтрации
@@ -86,6 +86,8 @@ class Ad(Base):
     # Теги для улучшенного поиска
     tags = Column(Text, nullable=True)
     
+    brand = Column(String(100), nullable=True)
+
     # Статистика
     view_count = Column(Integer, default=0)
     favorite_count = Column(Integer, default=0)

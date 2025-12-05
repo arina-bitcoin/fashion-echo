@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator, Field
+from pydantic import BaseModel, field_validator, Field, ConfigDict
 from typing import Optional
 from datetime import datetime
 from enum import Enum
@@ -68,17 +68,30 @@ class AdUpdate(BaseModel):
 
 class AdResponse(AdBase):
     id: int
-    user_id: int
-    images: list[str] = []
-    # === ИЗМЕНЕНИЕ: Заменяем is_active на status ===
-    status: AdStatus
+    title: str
+    description: str
+    price: Optional[float] = None
+    type: str
+    status: str
+    main_category: Optional[str] = None
+    sub_category: Optional[str] = None
+    season: Optional[str] = None
+    condition: Optional[str] = None
+    size: Optional[str] = None
+    colors: Optional[list[str]] = None
+    tags: Optional[str] = None
+    brand: Optional[str] = None
     view_count: int = 0
     favorite_count: int = 0
+    user_id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
     
-    class Config:
-        from_attributes = True
+    images: Optional[list[ImageUploadResponse]] = []
+    user: Optional[UserResponseSimple] = None
+    is_favorite: Optional[bool] = None
+    
+    model_config = ConfigDict(from_attributes=True)
 
 # Enum для сортировки
 class SortBy(str, Enum):
@@ -231,6 +244,16 @@ class FavoriteResponse(BaseModel):
     added: bool
     message: str
 
+class UserResponseSimple(BaseModel):
+    """Упрощенная схема пользователя для ответов"""
+    id: int
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    avatar_url: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
 class ImageUploadResponse(BaseModel):
     file_path: str
     filename: str
@@ -238,6 +261,8 @@ class ImageUploadResponse(BaseModel):
     size: int
     image_id: Optional[int] = None
     order: Optional[int] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 class ImageOrderUpdate(BaseModel):
     image_ids: list[int] = Field(..., min_items=1, description="Список ID изображений в новом порядке")

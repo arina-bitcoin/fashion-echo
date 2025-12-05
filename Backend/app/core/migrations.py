@@ -1,6 +1,12 @@
 import asyncio
 from sqlalchemy import text
 from Backend.app.core.database import engine
+import sys
+from pathlib import Path
+
+# Добавляем корень проекта в sys.path (как у тебя было)
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+
 
 async def migrate_database():
     """Миграция базы данных для добавления новых полей"""

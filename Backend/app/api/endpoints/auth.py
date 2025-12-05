@@ -39,7 +39,7 @@ async def register(
     db_user = User(
         email=user_data.email,
         hashed_password=hashed_password,
-        name=user_data.full_name,
+        name=user_data.name,
         phone=user_data.phone,
         is_active = True,
         is_verified = False,

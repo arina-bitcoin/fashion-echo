@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
+from pydantic import BaseModel, EmailStr, field_validator, ConfigDict, model_validator
 from typing import Optional
 from datetime import datetime
 from typing import Optional
@@ -38,7 +38,7 @@ class UserCreate(BaseModel):
     """
     email: EmailStr
     password: str
-    full_name: Optional[str] = None
+    name: Optional[str] = None
     phone: Optional[str] = None
 
     @field_validator("password")
@@ -55,8 +55,8 @@ class UserUpdate(UserBase):
     Обновление профиля: все поля опциональны + настройки.
     Используется в /api/users/me (PUT).
     """
-    full_name: Optional[str] = None
-    phone: Optional[str] = None
+    # full_name: Optional[str] = None
+    # phone: Optional[str] = None
     settings: Optional[UserSettings] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -73,9 +73,24 @@ class UserResponse(UserBase):
     last_login: Optional[datetime] = None
     settings: Optional[UserSettings] = None
 
-    @property
-    def full_name(self) -> Optional[str]:
-        return self.name  # Или vice versa, в зависимости от того, что использует ваша БД
+    # @model_validator(mode='before')
+    # @classmethod
+    # def convert_name_to_full_name(cls, data):
+    #     """Конвертирует поле 'name' из БД в 'full_name' в схеме"""
+    #     if isinstance(data, dict):
+    #         # Если в данных есть 'name', но нет 'full_name' - копируем значение
+    #         if 'name' in data and ('full_name' not in data or data['full_name'] is None):
+    #             data['full_name'] = data['name']
+    #         # Также сохраняем обратную совместимость: если передали full_name, сохраняем в name
+    #         if 'full_name' in data and ('name' not in data or data['name'] is None):
+    #             data['name'] = data['full_name']
+    #     elif hasattr(data, 'name'):
+    #         # Для объектов SQLAlchemy
+    #         if not hasattr(data, 'full_name') or data.full_name is None:
+    #             data.full_name = data.name
+    #         if data.name is None and hasattr(data, 'full_name'):
+    #             data.name = data.full_name
+    #     return data
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -106,5 +121,20 @@ class UserPublicInfo(BaseModel):
     name: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
+
+    # @model_validator(mode='before')
+    # @classmethod
+    # def convert_name_to_full_name(cls, data):
+    #     if isinstance(data, dict):
+    #         if 'name' in data and ('full_name' not in data or data['full_name'] is None):
+    #             data['full_name'] = data['name']
+    #         if 'full_name' in data and ('name' not in data or data['name'] is None):
+    #             data['name'] = data['full_name']
+    #     elif hasattr(data, 'name'):
+    #         if not hasattr(data, 'full_name') or data.full_name is None:
+    #             data.full_name = data.name
+    #         if data.name is None and hasattr(data, 'full_name'):
+    #             data.name = data.full_name
+    #     return data
     
     model_config = ConfigDict(from_attributes=True)

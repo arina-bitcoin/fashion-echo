@@ -46,7 +46,7 @@
                             <option value="">Выберите тип</option>
                             <option value="sell">Продажа</option>
                             <option value="exchange">Обмен</option>
-                            <option value="buy_request">Запрос на покупку</option>
+                            <option value="buy">Запрос на покупку</option>
                         </select>
                     </div>
 
@@ -69,7 +69,57 @@
                 <div class="form-section">
                     <h2 class="section-title">Характеристики</h2>
                     
+                    <!-- Основная категория -->
                     <div class="form-field">
+                        <label class="form-label" for="ad-main-category">Основная категория *</label>
+                        <select id="ad-main-category" class="input" required>
+                            <option value="">Выберите категорию</option>
+                            <option value="men">Мужская</option>
+                            <option value="women">Женская</option>
+                            <option value="kids">Детская</option>
+                            <option value="unisex">Унисекс</option>
+                            <option value="baby">Для малышей</option>
+                        </select>
+                    </div>
+
+                    <!-- Подкатегория -->
+                    <div class="form-field">
+                        <label class="form-label" for="ad-sub-category">Подкатегория</label>
+                        <select id="ad-sub-category" class="input">
+                            <option value="">Выберите подкатегорию</option>
+                            <option value="formal">Формальная/Офисная</option>
+                            <option value="casual">Повседневная</option>
+                            <option value="sports">Спортивная</option>
+                            <option value="outerwear">Верхняя одежда</option>
+                            <option value="underwear">Нижнее белье</option>
+                            <option value="swimwear">Пляжная/Купальники</option>
+                            <option value="accessories">Аксессуары</option>
+                            <option value="shoes">Обувь</option>
+                            <option value="bags">Сумки</option>
+                            <option value="jewelry">Украшения</option>
+                        </select>
+                    </div>
+
+                    <!-- Сезон -->
+                    <div class="form-field">
+                        <label class="form-label" for="ad-season">Сезон</label>
+                        <select id="ad-season" class="input">
+                            <option value="">Выберите сезон</option>
+                            <option value="winter">Зима</option>
+                            <option value="spring">Весна</option>
+                            <option value="summer">Лето</option>
+                            <option value="autumn">Осень</option>
+                            <option value="all_season">Всесезонная</option>
+                        </select>
+                    </div>
+
+                    <!-- Теги (добавьте этот блок) -->
+                    <div class="form-field">
+                        <label class="form-label" for="ad-tags">Теги (через запятую)</label>
+                        <input type="text" id="ad-tags" class="input" placeholder="например: джинсы, кожа, винтаж">
+                    </div>
+
+                    <!-- <div class="form-field">
                         <label class="form-label" for="ad-category">Категория *</label>
                         <select id="ad-category" class="input" required>
                             <option value="">Выберите категорию</option>
@@ -79,7 +129,7 @@
                             <option value="bags">Сумки</option>
                             <option value="other">Другое</option>
                         </select>
-                    </div>
+                    </div> -->
 
                     <div class="form-field">
                         <label class="form-label" for="ad-condition">Состояние *</label>

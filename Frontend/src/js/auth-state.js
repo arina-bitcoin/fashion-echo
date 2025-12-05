@@ -209,6 +209,7 @@ async register(userData) {
                 // ИСПРАВЛЕНИЕ: Проверяем avatar_url в первую очередь (сервер возвращает его)
                 // Если нет avatar_url, проверяем avatar и формируем URL
                 let avatarUrl = null;
+                const userName = this.currentUser.full_name || this.currentUser.name || this.currentUser.email;
                 
                 if (this.currentUser.avatar_url) {
                     // Используем готовый URL с сервера
@@ -249,11 +250,25 @@ async register(userData) {
     }
 
     createInitialsAvatar(imgElement, userName) {
-        const names = userName.split(' ');
+        
+        if (!userName || typeof userName !== 'string' || userName.trim() === '') {
+            // Если имени нет, используем email или '??'
+            console.log('⚠️ User name is empty, using default initials');
+            const initials = '??'; // Или можно использовать первую букву email
+            this.drawInitialsAvatar(imgElement, initials);
+            return;
+        }
+        
+        const names = userName.trim().split(' ');
         let initials = names.length >= 2 
             ? names[0].charAt(0) + names[1].charAt(0)
             : names[0].charAt(0);
 
+        this.drawInitialsAvatar(imgElement, initials);
+    }
+
+    // Дополнительная функция для рисования аватара
+    drawInitialsAvatar(imgElement, initials) {
         const canvas = document.createElement('canvas');
         canvas.width = 40;
         canvas.height = 40;

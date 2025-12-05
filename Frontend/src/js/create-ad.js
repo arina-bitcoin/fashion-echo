@@ -162,20 +162,117 @@ class CreateAdPage {
         preview.remove();
     }
 
+    // async handleFormSubmit() {
+    //     if (!this.elements.form) return;
+
+    //     // Собираем данные формы
+    //     const formData = {
+    //         type: this.elements.adType?.value,
+    //         title: document.getElementById('ad-title')?.value,
+    //         description: document.getElementById('ad-description')?.value || null,
+    //         price: this.elements.adPrice?.value ? parseFloat(this.elements.adPrice.value) : null,
+    //         condition: document.getElementById('ad-condition')?.value,
+            
+    //         // ИЗМЕНЕНО: заменяем category на main_category и sub_category
+    //         main_category: document.getElementById('ad-main-category')?.value || null,
+    //         sub_category: document.getElementById('ad-sub-category')?.value || null,
+    //         season: document.getElementById('ad-season')?.value || null,
+            
+    //         size: document.getElementById('ad-size')?.value || null,
+    //         brand: document.getElementById('ad-brand')?.value || null,
+            
+    //         // Дополнительные поля
+    //         colors: this.getSelectedColors(), // Функция для получения выбранных цветов
+    //         tags: document.getElementById('ad-tags')?.value || null,
+    //     };
+
+    //     // Валидация
+    //     if (!formData.type) {
+    //         alert('Выберите тип объявления');
+    //         return;
+    //     }
+
+    //     if (!formData.title) {
+    //         alert('Введите название объявления');
+    //         return;
+    //     }
+
+    //     if (formData.type === 'sell' && !formData.price) {
+    //         alert('Для объявлений о продаже необходимо указать цену');
+    //         return;
+    //     }
+
+    //     if (!formData.condition) {
+    //         alert('Выберите состояние товара');
+    //         return;
+    //     }
+
+    //     if (!formData.main_category) {
+    //         if (confirm('Не выбрана основная категория. Продолжить без категории?')) {
+    //             // Можно продолжить без категории
+    //         } else {
+    //             return;
+    //         }
+    //     }
+
+    //     try {
+    //         // Блокируем кнопку отправки
+    //         if (this.elements.submitBtn) {
+    //             this.elements.submitBtn.disabled = true;
+    //             this.elements.submitBtn.textContent = 'Создание...';
+    //         }
+
+    //         console.log('📤 Отправка объявления:', formData);
+    //         const createdAd = await window.apiService.createAd(formData);
+
+    //         if (this.uploadedImages.length > 0) {
+    //             console.log('📸 Загрузка изображений к объявлению...');
+    //             await this.attachImagesToAd(createdAd.id, this.uploadedImages);
+    //         }
+            
+    //         console.log('✅ Объявление создано:', createdAd);
+    //         alert('Объявление успешно создано!');
+            
+    //         // Перенаправляем на страницу "Мои объявления"
+    //         window.location.href = 'my-ads.html';
+            
+    //     } catch (error) {
+    //         console.error('❌ Ошибка создания объявления:', error);
+    //         alert(`Ошибка создания объявления: ${error.message || 'Неизвестная ошибка'}`);
+    //     } finally {
+    //         // Разблокируем кнопку
+    //         if (this.elements.submitBtn) {
+    //             this.elements.submitBtn.disabled = false;
+    //             this.elements.submitBtn.textContent = 'СОЗДАТЬ ОБЪЯВЛЕНИЕ';
+    //         }
+    //     }
+    // }
+
     async handleFormSubmit() {
         if (!this.elements.form) return;
 
-        // Собираем данные формы
+        // Собираем данные формы - ПРАВИЛЬНАЯ СТРУКТУРА
         const formData = {
             type: this.elements.adType?.value,
             title: document.getElementById('ad-title')?.value,
-            description: document.getElementById('ad-description')?.value || null,
+            description: document.getElementById('ad-description')?.value || "",
             price: this.elements.adPrice?.value ? parseFloat(this.elements.adPrice.value) : null,
             condition: document.getElementById('ad-condition')?.value,
-            category: document.getElementById('ad-category')?.value,
+            
+            // ПРАВИЛЬНЫЕ поля категорий (должны соответствовать HTML)
+            main_category: document.getElementById('ad-main-category')?.value || null,
+            sub_category: document.getElementById('ad-sub-category')?.value || null,
+            season: document.getElementById('ad-season')?.value || null,
+            
             size: document.getElementById('ad-size')?.value || null,
             brand: document.getElementById('ad-brand')?.value || null,
+            
+            // Дополнительные поля (убедитесь, что есть в HTML)
+            colors: this.getSelectedColors(), // функция возвращает null, если ничего не выбрано
+            tags: document.getElementById('ad-tags')?.value || null,
         };
+
+        console.log('📤 Собираемые данные формы:', formData);
 
         // Валидация
         if (!formData.type) {
@@ -183,13 +280,23 @@ class CreateAdPage {
             return;
         }
 
-        if (!formData.title) {
+        if (!formData.title || formData.title.trim().length === 0) {
             alert('Введите название объявления');
             return;
         }
 
-        if (formData.type === 'sell' && !formData.price) {
+        if (formData.title.length > 200) {
+            alert('Название не должно превышать 200 символов');
+            return;
+        }
+
+        if (formData.type === 'sell' && formData.price === null) {
             alert('Для объявлений о продаже необходимо указать цену');
+            return;
+        }
+
+        if (formData.type === 'sell' && formData.price !== null && formData.price < 0) {
+            alert('Цена не может быть отрицательной');
             return;
         }
 
@@ -198,15 +305,14 @@ class CreateAdPage {
             return;
         }
 
-        if (!formData.category) {
-            alert('Выберите категорию');
-            return;
+        // Проверка main_category
+        if (!formData.main_category) {
+            if (confirm('Не выбрана основная категория. Продолжить без категории?')) {
+                // Можно продолжить без категории
+            } else {
+                return;
+            }
         }
-
-        // Добавляем изображения - берем только пути к файлам, убираем дубликаты
-        const imagePaths = this.uploadedImages.map(img => img.file_path).filter(path => path); // Фильтруем пустые пути
-        formData.images = [...new Set(imagePaths)]; // Убираем дубликаты
-        console.log('📸 Отправляемые изображения:', formData.images);
 
         try {
             // Блокируем кнопку отправки
@@ -215,8 +321,19 @@ class CreateAdPage {
                 this.elements.submitBtn.textContent = 'Создание...';
             }
 
-            console.log('📤 Отправка объявления:', formData);
-            const createdAd = await window.apiService.createAd(formData);
+            console.log('📤 Отправка объявления на сервер:', formData);
+            
+            // Удаляем поле images - их нет в схеме AdCreate
+            const adDataForApi = { ...formData };
+            delete adDataForApi.images; // если оно существует
+            
+            const createdAd = await window.apiService.createAd(adDataForApi);
+
+            // Загружаем изображения после создания объявления
+            if (this.uploadedImages.length > 0) {
+                console.log('📸 Загрузка изображений к объявлению...');
+                await this.attachImagesToAd(createdAd.id, this.uploadedImages);
+            }
             
             console.log('✅ Объявление создано:', createdAd);
             alert('Объявление успешно создано!');
@@ -235,7 +352,50 @@ class CreateAdPage {
             }
         }
     }
-}
+
+    async attachImagesToAd(adId, images) {
+        if (!adId || !images || images.length === 0) return;
+        
+        const apiService = window.apiService;
+        
+        for (const image of images) {
+            try {
+                // Здесь нужно перезагрузить файлы или использовать уже загруженные пути
+                // В зависимости от того, как работает ваш бэкенд
+                
+                // Вариант 1: Если изображения уже загружены ранее
+                const response = await apiService.request(`/ads/${adId}/images`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        file_path: image.file_path,
+                        filename: image.server_filename || image.filename
+                    }),
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...apiService.getAuthHeaders()
+                    }
+                });
+                
+                console.log('✅ Изображение прикреплено:', response);
+                
+            } catch (error) {
+                console.error('❌ Ошибка прикрепления изображения:', error);
+                // Можно продолжить, даже если одно изображение не загрузилось
+            }
+        }
+    }
+
+    // Вспомогательная функция для получения выбранных цветов
+    getSelectedColors() {
+        const colors = [];
+        // Если у вас есть чекбоксы или мультиселект для цветов
+        const colorCheckboxes = document.querySelectorAll('input[name="colors"]:checked');
+        colorCheckboxes.forEach(checkbox => {
+            colors.push(checkbox.value);
+        });
+        return colors.length > 0 ? colors : null;
+    }
+} // Закрывающая скобка класса CreateAdPage
 
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', () => {
@@ -247,4 +407,3 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
-

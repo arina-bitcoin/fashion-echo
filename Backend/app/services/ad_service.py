@@ -147,7 +147,7 @@ class AdService:
         stmt = select(Ad).options(
             selectinload(Ad.images),
             selectinload(Ad.user),
-            selectinload(Ad.favorited_by)
+            selectinload(Ad.favorited_by_users)
         ).where(Ad.id == ad_id)
         
         result = await db.execute(stmt)
@@ -247,8 +247,9 @@ class AdService:
         status: Optional[str] = None,
         skip: int = 0, 
         limit: int = 100
-    ) -> list[Ad]:
+    ) -> list[dict[str, Any]]:
         """Получить объявления пользователя"""
+        
         stmt = select(Ad).options(
             selectinload(Ad.images)
         ).where(Ad.user_id == user_id)
