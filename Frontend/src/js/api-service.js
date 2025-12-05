@@ -389,6 +389,37 @@ class ApiService {
             method: 'GET'
         });
     }
+
+    // Favorites endpoints
+    async addToFavorites(adId) {
+        console.log('❤️ Adding to favorites:', adId);
+        return this.request(`/ads/${adId}/favorite`, {
+            method: 'POST'
+        });
+    }
+
+    async removeFromFavorites(adId) {
+        console.log('💔 Removing from favorites:', adId);
+        return this.request(`/ads/${adId}/favorite`, {
+            method: 'DELETE'
+        });
+    }
+
+    async getFavorites(skip = 0, limit = 100) {
+        console.log('📋 Getting favorites');
+        return this.request(`/ads/favorites/?skip=${skip}&limit=${limit}`);
+    }
+
+    async isFavorite(adId) {
+        console.log('🔍 Checking if favorite:', adId);
+        try {
+            const ad = await this.getAd(adId);
+            return ad.is_favorite || false;
+        } catch (error) {
+            console.error('❌ Error checking favorite status:', error);
+            return false;
+        }
+    }
 }
 
 // Глобальный экземпляр

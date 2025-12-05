@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FASHIONECHO - Корзина</title>
+    <title>FASHIONECHO - Избранное</title>
     <link rel="stylesheet" href="css/cart.css">
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/profile.css">
@@ -38,54 +38,27 @@
 </div>
         </header>
 
-    <!-- Cart Content -->
+    <!-- Favorites Content -->
     <div class="cart-container">
         <div class="cart-header">
-            <h1 class="cart-title">КОРЗИНА ПОКУПОК</h1>
-            <p class="cart-subtitle">Ваши выбранные товары</p>
+            <h1 class="cart-title">ИЗБРАННОЕ</h1>
+            <p class="cart-subtitle">Ваши любимые товары</p>
         </div>
 
         <div class="cart-content">
-            <!-- Cart Items -->
+            <!-- Favorites Items -->
             <div class="cart-items" id="cart-items">
                 <!-- Items will be populated by JavaScript -->
-            </div>
-
-            <!-- Cart Summary -->
-            <div class="cart-summary">
-                <h3 class="summary-title">Сводка заказа</h3>
-                
-                <div class="summary-row">
-                    <span>Товары (3)</span>
-                    <span id="subtotal">4 800 ₽</span>
-                </div>
-                
-                <div class="summary-row">
-                    <span>Доставка</span>
-                    <span id="shipping">500 ₽</span>
-                </div>
-                
-                <div class="promo-section">
-                    <input type="text" class="promo-input" placeholder="Промокод" id="promo-code">
-                    <button class="apply-promo" id="apply-promo">Применить</button>
-                </div>
-                
-                <div class="summary-row summary-total">
-                    <span>Итого</span>
-                    <span id="total">5 300 ₽</span>
-                </div>
-                
-                <button class="checkout-btn" id="checkout-btn">Перейти к оформлению</button>
             </div>
         </div>
     </div>
 
-    <!-- Empty Cart State (hidden by default) -->
+    <!-- Empty Favorites State (hidden by default) -->
     <div class="empty-cart" id="empty-cart" style="display: none;">
-        <div class="empty-cart-icon">🛒</div>
-        <h3>Ваша корзина пуста</h3>
-        <p class="empty-cart-text">Добавьте товары из каталога, чтобы сделать заказ</p>
-        <button class="btn btn-primary" id="continue-shopping">Продолжить покупки</button>
+        <div class="empty-cart-icon">❤️</div>
+        <h3>Ваше избранное пусто</h3>
+        <p class="empty-cart-text">Добавьте товары из каталога в избранное</p>
+        <button class="btn btn-primary" id="continue-shopping">Перейти к каталогу</button>
     </div>
     
 
@@ -104,7 +77,7 @@
     <script src="js/api-service.js"></script>    <!-- ПЕРВЫЙ -->
     <script src="js/auth-state.js"></script>     <!-- ВТОРОЙ -->
     <script src="js/auth.js"></script>
-    <script src="js/cart.js"></script>
+    <script src="js/favorites.js"></script>
 
 </body>
 </html>

@@ -20,7 +20,7 @@ class ProductPage {
             conditionList: document.getElementById('condition-list'),
             sellerInfo: document.getElementById('seller-info'),
             btnContact: document.getElementById('btn-contact'),
-            btnCart: document.getElementById('btn-cart'),
+            btnFavorite: document.getElementById('btn-cart'),
             contactModal: document.getElementById('contact-modal'),
             modalClose: document.getElementById('modal-close'),
             contactInfo: document.getElementById('contact-info'),
@@ -50,8 +50,10 @@ class ProductPage {
             this.elements.btnContact.addEventListener('click', () => this.showContacts());
         }
         
-        if (this.elements.btnCart) {
-            this.elements.btnCart.addEventListener('click', () => this.addToCart());
+        if (this.elements.btnFavorite) {
+            this.elements.btnFavorite.addEventListener('click', () => this.toggleFavorite());
+            // Обновляем текст кнопки
+            this.elements.btnFavorite.textContent = 'В избранное';
         }
 
         if (this.elements.modalClose) {
@@ -155,6 +157,18 @@ class ProductPage {
             // Пока просто показываем стандартное сообщение
             // В будущем можно будет проверить, разрешил ли продавец показывать контакты
             this.elements.sellerInfo.textContent = 'ПРОДАВЕЦ ВЫБРАЛ ОСТАВИТЬ НОМЕР ТЕЛЕФОНА ДЛЯ СВЯЗИ';
+        }
+
+        // Обновляем кнопку избранного
+        if (this.elements.btnFavorite) {
+            const isFavorite = this.adData.is_favorite || false;
+            if (isFavorite) {
+                this.elements.btnFavorite.textContent = 'В избранном ❤️';
+                this.elements.btnFavorite.style.background = 'var(--success-color)';
+            } else {
+                this.elements.btnFavorite.textContent = 'В избранное';
+                this.elements.btnFavorite.style.background = 'var(--primary-color)';
+            }
         }
     }
 
@@ -481,10 +495,59 @@ class ProductPage {
         }
     }
 
-    addToCart() {
-        // TODO: Реализовать добавление в корзину
-        console.log('🛒 Добавление в корзину:', this.adId);
-        alert('Товар добавлен в корзину!');
+    async toggleFavorite() {
+        try {
+            // Проверяем авторизацию
+            if (!window.apiService.isAuthenticated()) {
+                alert('Для добавления в избранное необходимо войти в систему');
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Проверяем текущий статус избранного
+            const isFavorite = this.adData.is_favorite || false;
+
+            if (isFavorite) {
+                // Удаляем из избранного
+                await window.apiService.removeFromFavorites(this.adId);
+                this.adData.is_favorite = false;
+                if (this.elements.btnFavorite) {
+                    this.elements.btnFavorite.textContent = 'В избранное';
+                    this.elements.btnFavorite.style.background = 'var(--primary-color)';
+                }
+                this.showToast('Товар удален из избранного');
+            } else {
+                // Добавляем в избранное
+                await window.apiService.addToFavorites(this.adId);
+                this.adData.is_favorite = true;
+                if (this.elements.btnFavorite) {
+                    this.elements.btnFavorite.textContent = 'В избранном ❤️';
+                    this.elements.btnFavorite.style.background = 'var(--success-color)';
+                }
+                this.showToast('Товар добавлен в избранное');
+            }
+        } catch (error) {
+            console.error('❌ Ошибка работы с избранным:', error);
+            this.showToast('Не удалось обновить избранное', true);
+        }
+    }
+
+    showToast(message, isError = false) {
+        // Создаем или находим элемент toast
+        let toast = document.getElementById('toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'toast';
+            toast.className = 'toast';
+            document.body.appendChild(toast);
+        }
+
+        toast.textContent = message;
+        toast.className = `toast ${isError ? 'error' : ''} show`;
+        
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
     }
 
     getPlaceholderImage() {
