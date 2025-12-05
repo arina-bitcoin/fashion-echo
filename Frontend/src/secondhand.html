@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FASHIONECHO - Секондхенд</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/profile.css">
+    <link rel="stylesheet" href="css/product.css">
+</head>
+<body>
+    <section id="screen-secondhand" class="screen active">
+        <header class="topbar">
+            <a class="brand" href='index.html'>FASHIONECHO</a>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="window.location.href='index.html'">Главная</button>
+                <button class="btn btn-secondary" onclick="window.location.href='offers.html'">Предложения</button>
+                <button class="btn btn-secondary" onclick="window.location.href='cart.html'">Корзина</button>
+                <div id="auth-section">
+                    <button class="btn btn-primary" id="login-btn" onclick="window.location.href='login.html'">Вход/Регистрация</button>
+                    <div id="user-avatar-btn" class="user-avatar-header">
+                        <img id="header-avatar" src="" alt="Аватар">
+                    </div>
+                    <div class="user-dropdown-menu">
+                        <button class="user-menu-item" id="profile-btn">
+                            <span>📋</span> Профиль
+                        </button>
+                        <button class="user-menu-item" id="logout-btn">
+                            <span>🚪</span> Выйти
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="product-container" id="secondhand-container">
+            <div class="product-info" style="width: 100%;">
+                <h1 class="product-title" id="secondhand-name">Загрузка...</h1>
+                <div class="detail-section">
+                    <h2 class="detail-title">Адрес:</h2>
+                    <p class="detail-content" id="secondhand-address">Загрузка...</p>
+                </div>
+                
+                <div class="detail-section">
+                    <h2 class="detail-title">Контакты:</h2>
+                    <div id="contact-info" class="contact-info">
+                        <p id="secondhand-phone"></p>
+                        <p id="secondhand-email"></p>
+                        <p id="secondhand-website"></p>
+                    </div>
+                </div>
+
+                <div class="detail-section" id="secondhand-description-section" style="display: none;">
+                    <h2 class="detail-title">Описание:</h2>
+                    <p class="detail-content" id="secondhand-description"></p>
+                </div>
+
+                <div class="detail-section" id="secondhand-hours-section" style="display: none;">
+                    <h2 class="detail-title">Часы работы:</h2>
+                    <p class="detail-content" id="secondhand-hours"></p>
+                </div>
+
+                <div class="product-actions">
+                    <button class="btn-contact" onclick="window.location.href='index.html'">Назад к карте</button>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <div class="brand">FASHIONECHO</div>
+            <div class="footer-links">
+                <a href="index.html">Главная</a>
+                <a href="offers.html">Предложения</a>
+                <a href="about.html">О нас</a>
+            </div>
+        </footer>
+    </section>
+
+    <script src="js/api-service.js"></script>
+    <script src="js/auth-state.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        class SecondhandPage {
+            constructor() {
+                this.secondhandId = this.getSecondhandIdFromUrl();
+                this.init();
+            }
+
+            getSecondhandIdFromUrl() {
+                const urlParams = new URLSearchParams(window.location.search);
+                return parseInt(urlParams.get('id'));
+            }
+
+            async init() {
+                if (!this.secondhandId) {
+                    this.showError('ID секондхенда не указан');
+                    return;
+                }
+
+                await this.loadSecondhand();
+            }
+
+            async loadSecondhand() {
+                try {
+                    console.log('🏪 Loading secondhand:', this.secondhandId);
+                    const secondhand = await window.apiService.getSecondhand(this.secondhandId);
+                    this.displaySecondhand(secondhand);
+                } catch (error) {
+                    console.error('❌ Error loading secondhand:', error);
+                    this.showError('Не удалось загрузить информацию о секондхенде');
+                }
+            }
+
+            displaySecondhand(secondhand) {
+                document.getElementById('secondhand-name').textContent = secondhand.name || 'Не указано';
+                document.getElementById('secondhand-address').textContent = secondhand.address || 'Не указан';
+
+                const phoneEl = document.getElementById('secondhand-phone');
+                const emailEl = document.getElementById('secondhand-email');
+                const websiteEl = document.getElementById('secondhand-website');
+
+                if (secondhand.phone) {
+                    phoneEl.textContent = `Телефон: ${secondhand.phone}`;
+                    phoneEl.style.display = 'block';
+                } else {
+                    phoneEl.style.display = 'none';
+                }
+
+                if (secondhand.email) {
+                    emailEl.textContent = `Email: ${secondhand.email}`;
+                    emailEl.style.display = 'block';
+                } else {
+                    emailEl.style.display = 'none';
+                }
+
+                if (secondhand.website) {
+                    websiteEl.innerHTML = `Сайт: <a href="${secondhand.website}" target="_blank">${secondhand.website}</a>`;
+                    websiteEl.style.display = 'block';
+                } else {
+                    websiteEl.style.display = 'none';
+                }
+
+                if (secondhand.description) {
+                    document.getElementById('secondhand-description').textContent = secondhand.description;
+                    document.getElementById('secondhand-description-section').style.display = 'block';
+                }
+
+                if (secondhand.opening_hours) {
+                    document.getElementById('secondhand-hours').textContent = secondhand.opening_hours;
+                    document.getElementById('secondhand-hours-section').style.display = 'block';
+                }
+            }
+
+            showError(message) {
+                const container = document.getElementById('secondhand-container');
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px 20px;">
+                        <p style="color: var(--error-color); margin-bottom: 20px;">${message}</p>
+                        <button class="btn btn-primary" onclick="window.location.href='index.html'">
+                            Вернуться на карту
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            window.secondhandPage = new SecondhandPage();
+        });
+    </script>
+</body>
+</html>
+

@@ -13,7 +13,7 @@
         <header class="topbar">
             <a class="brand" href='index.html'>FASHIONECHO</a>
             <div class="header-actions">
-    <button class="btn btn-secondary" onclick="window.location.href='offers.html'">Предложения</button>
+    <button class="btn btn-secondary" onclick="window.location.href='index.html'">Главная</button>
     <button class="btn btn-secondary" onclick="window.location.href='cart.html'">Корзина</button>
     <div id="auth-section">
         <!-- Кнопка входа -->
@@ -37,20 +37,15 @@
 </div>
         </header>
         <div style="padding:12px 16px; display:grid; gap:14px;">
-            <div style="color:var(--primary-color); letter-spacing:0.06em; font-weight: 900; font-size: 1.5rem;">ПРЕДЛОЖЕНИЯ</div>
             
-            <!-- Поиск -->
+            <!-- Поиск и фильтры в одном контейнере -->
             <div class="search-card">
-                <div class="search-header">Найти товар?</div>
                 <div class="search-input-wrapper">
                     <span class="search-icon">🔎</span>
                     <input type="text" id="search-input" class="search-input" placeholder="Поиск по товарам...">
                 </div>
+                <button id="toggle-filters-btn" class="btn-filters">Фильтры ▼</button>
             </div>
-
-            <!-- Кнопка для открытия фильтров -->
-            <button id="toggle-filters-btn" class="btn-filters">Фильтры ▼</button>
-
             <!-- Модальное окно фильтров -->
             <div id="filters-modal" class="modal">
                 <div class="modal-content">

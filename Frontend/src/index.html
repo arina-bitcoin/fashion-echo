@@ -55,14 +55,8 @@
                 <!-- Сюда будем выводить результаты поиска -->
                 <div id="shop-results" style="margin-top:10px; display:flex; flex-direction:column; gap:6px;"></div>
             </div>
-
-            <!-- Карта (пока просто iframe) -->
-            <div class="card" style="background: var(--card-color); border-radius:16px; box-shadow: var(--shadow); height:360px; overflow:hidden;">
-                <iframe
-                    title="map"
-                    src="https://www.openstreetmap.org/export/embed.html?bbox=37.60%2C55.72%2C37.74%2C55.78&layer=mapnik"
-                    style="border:0; width:100%; height:100%;"
-                ></iframe>
+            <div class="card" style="background: var(--card-color); border-radius:16px; box-shadow: var(--shadow); height:calc(100vh - 200px); overflow:hidden; position: relative;">
+                <div id="yandex-map" style="width:100%; height:100%;"></div>
             </div>
         </div>
     </section>
@@ -82,84 +76,6 @@
     <script src="js/auth-state.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/debug-auth.js"></script>
-
-    <!-- Логика поиска секондов -->
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const input = document.getElementById('shop-search');
-            const resultsContainer = document.getElementById('shop-results');
-
-            if (!window.apiService) {
-                console.error('ApiService не найден на window');
-                return;
-            }
-
-            function renderResults(data) {
-                resultsContainer.innerHTML = '';
-
-                if (!data || !data.items || data.items.length === 0) {
-                    resultsContainer.innerHTML = '<div style="font-size: 14px; color: var(--muted-color);">Ничего не найдено</div>';
-                    return;
-                }
-
-                data.items.forEach(shop => {
-                    const div = document.createElement('div');
-                    div.style.padding = '8px 10px';
-                    div.style.borderRadius = '10px';
-                    div.style.background = 'var(--secondary-color)';
-
-                    const name = shop.name || 'Без названия';
-                    const address = shop.address || shop.full_address || '';
-                    const city = shop.city || '';
-                    const desc = address || city ? `${address}${city ? ', ' + city : ''}` : '';
-
-                    div.innerHTML = `
-                        <div style="font-weight:600; font-size:14px;">${name}</div>
-                        ${desc ? `<div style="font-size:13px; opacity:0.8;">${desc}</div>` : ''}
-                    `;
-
-                    resultsContainer.appendChild(div);
-                });
-            }
-
-            async function performSearch(query) {
-                if (!query) {
-                    resultsContainer.innerHTML = '';
-                    return;
-                }
-
-                resultsContainer.innerHTML = '<div style="font-size: 14px; color: var(--muted-color);">Ищем...</div>';
-
-                try {
-                    // отправляем параметр search в /api/secondhand/
-                    const data = await window.apiService.searchSecondhand({ search: query });
-                    console.log('Результаты поиска секондов:', data);
-                    renderResults(data);
-                } catch (err) {
-                    console.error('Ошибка поиска секондов', err);
-                    const msg = err && err.message ? err.message : 'Неизвестная ошибка';
-                    resultsContainer.innerHTML =
-                        `<div style="font-size: 14px; color: var(--error-color, #b00020);">
-                            Ошибка при поиске: ${msg}
-                         </div>`;
-                }
-            }
-
-            // Поиск по Enter
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const query = input.value.trim();
-                    performSearch(query);
-                }
-            });
-
-            // Можно добавить живой поиск по вводу (опционально):
-            // input.addEventListener('input', (e) => {
-            //     const query = e.target.value.trim();
-            //     if (query.length >= 3) performSearch(query);
-            // });
-        });
-    </script>
+    <script src="js/map.js"></script>
 </body>
 </html>
