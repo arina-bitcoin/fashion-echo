@@ -27,21 +27,26 @@ class ApiService {
         }
         
         // Если body - объект и не FormData, преобразуем в JSON
-        if (options.body && !isFormData && typeof options.body === 'object' && !(options.body instanceof FormData)) {
+        if (
+            options.body &&
+            !isFormData &&
+            typeof options.body === 'object' &&
+            !(options.body instanceof FormData)
+        ) {
             config.body = JSON.stringify(options.body);
         }
 
         try {
             console.log(`🔄 API ${config.method || 'GET'} Request: ${url}`);
-            
+
             const response = await fetch(url, config);
-            
+
             console.log(`📨 Response: ${response.status} for ${endpoint}`);
-            
+
             if (!response.ok) {
                 const errorText = await response.text();
                 let errorMessage = errorText || response.statusText;
-                
+
                 // Пытаемся извлечь сообщение из JSON ответа
                 try {
                     const errorJson = JSON.parse(errorText);
@@ -49,17 +54,17 @@ class ApiService {
                 } catch (e) {
                     // Если не JSON, используем текст как есть
                 }
-                
+
                 const error = new Error(errorMessage);
                 error.status = response.status;
                 throw error;
             }
-            
+
             const responseText = await response.text();
             const data = responseText ? JSON.parse(responseText) : {};
             console.log(`📦 API Response data for ${endpoint}:`, data);
             return data;
-            
+
         } catch (error) {
             console.error(`❌ API Error (${endpoint}):`, error);
             throw error;
@@ -74,29 +79,19 @@ class ApiService {
             phone: userData.phone || '',
             password: userData.password
         };
-        
+
         console.log('📤 Registering user:', { ...registerData, password: '***' });
-        
+
         return this.request('/auth/register', {
             method: 'POST',
             body: JSON.stringify(registerData)
         });
     }
 
+    // Старая версия login (оставлена в комментариях на всякий случай)
     // async login(credentials) {
     //     console.log('🔐 Logging in with:', { email: credentials.email, password: '***' });
-        
-    //     // // РАБОЧИЙ ФОРМАТ: POST с query parameters в URL
-    //     // const queryParams = new URLSearchParams({
-    //     //     email: credentials.email,
-    //     //     password: credentials.password
-    //     // }).toString();
-        
-    //     // const endpoint = `/auth/login?${queryParams}`;
-        
-    //     // return this.request(endpoint, {
-    //     //     method: 'POST'
-    //     // });
+
     //     // ПРАВИЛЬНЫЙ ФОРМАТ: POST с JSON в теле запроса
     //     return this.request('/auth/login', {
     //         method: 'POST',
@@ -109,7 +104,7 @@ class ApiService {
 
     async login(credentials) {
         console.log('🔐 Logging in with:', { email: credentials.email, password: '***' });
-        
+
         try {
             const response = await this.request('/auth/login', {
                 method: 'POST',
@@ -118,13 +113,13 @@ class ApiService {
                     password: credentials.password
                 })
             });
-            
+
             // === ИСПРАВЛЕНИЕ: Убедимся, что токен сохраняется ===
             if (response.access_token) {
                 this.setToken(response.access_token);
                 console.log('✅ Token saved after login');
             }
-            
+
             return response;
         } catch (error) {
             console.error('❌ Login error:', error);
@@ -134,7 +129,7 @@ class ApiService {
 
     async logout() {
         console.log('🚪 Logging out...');
-        
+
         try {
             const result = await this.request('/auth/logout', {
                 method: 'POST'
@@ -150,29 +145,29 @@ class ApiService {
 
     async getCurrentUser() {
         console.log('👤 Getting current user...');
-        
+
         // Используем работающий endpoint
         return this.request('/auth/me');
     }
 
     async updateProfile(profileData) {
         console.log('💾 Updating profile:', profileData);
-        
+
         return this.request('/users/me', {
             method: 'PUT',
             body: JSON.stringify(profileData)
         });
     }
 
-// Avatar endpoints
+    // Avatar endpoints
     async uploadAvatar(file) {
         console.log('📤 Uploading avatar file:', file.name);
-        
+
         const formData = new FormData();
         formData.append('file', file);
-        
+
         const url = `${this.BASE_URL}/users/me/avatar`;
-        
+
         const config = {
             method: 'POST',
             headers: {
@@ -184,24 +179,23 @@ class ApiService {
         try {
             console.log(`🔄 API POST Request: ${url}`);
             const response = await fetch(url, config);
-            
+
             console.log(`📨 Response: ${response.status} for avatar upload`);
-            
+
             if (!response.ok) {
                 const errorText = await response.text();
                 throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
 
             const data = await response.json();
-        
-        // Формируем полный URL для аватара
-        if (data.avatar) {
-            data.avatar_url = `http://localhost:8000/static/${data.avatar}`;
-            console.log('✅ Avatar URL:', data.avatar_url);
-        }
-        
-        return data;
-            // return await response.json();
+
+            // Формируем полный URL для аватара
+            if (data.avatar) {
+                data.avatar_url = `http://localhost:8000/static/${data.avatar}`;
+                console.log('✅ Avatar URL:', data.avatar_url);
+            }
+
+            return data;
         } catch (error) {
             console.error('❌ Avatar upload error:', error);
             throw error;
@@ -226,7 +220,7 @@ class ApiService {
     async getAds(params = {}) {
         console.log('📋 Getting ads with params:', params);
         const queryParams = new URLSearchParams();
-        
+
         // Базовые параметры
         if (params.skip !== undefined) queryParams.append('skip', params.skip);
         if (params.limit !== undefined) queryParams.append('limit', params.limit);
@@ -234,11 +228,11 @@ class ApiService {
         if (params.type) queryParams.append('type', params.type);
         if (params.search) queryParams.append('search', params.search);
         if (params.sort) queryParams.append('sort', params.sort);
-        
+
         // Ценовой диапазон
         if (params.min_price !== undefined) queryParams.append('min_price', params.min_price);
         if (params.max_price !== undefined) queryParams.append('max_price', params.max_price);
-        
+
         // Массивы (категории, подкатегории, сезоны, состояния, размеры, цвета)
         if (params.main_categories && Array.isArray(params.main_categories)) {
             params.main_categories.forEach(cat => queryParams.append('main_categories', cat));
@@ -258,10 +252,10 @@ class ApiService {
         if (params.colors && Array.isArray(params.colors)) {
             params.colors.forEach(color => queryParams.append('colors', color));
         }
-        
-        // Обратная совместимость
+
+        // Обратная совместимость со старым параметром
         if (params.category) queryParams.append('category', params.category);
-        
+
         const queryString = queryParams.toString();
         // Добавляем trailing slash, чтобы избежать редиректа
         const endpoint = queryString ? `/ads/?${queryString}` : '/ads/';
@@ -305,7 +299,7 @@ class ApiService {
         console.log('📤 Uploading ad image:', file.name);
         const formData = new FormData();
         formData.append('file', file);
-        
+
         return this.request('/ads/upload-image', {
             method: 'POST',
             headers: {}, // Не устанавливаем Content-Type, браузер сам добавит с boundary
@@ -318,17 +312,17 @@ class ApiService {
         return this.request(`/users/${userId}/public`);
     }
 
-    // Secondhand (секондхенды) methods - ДОБАВЛЕНЫ ИЗ НИЖНЕЙ ВЕРСИИ
+    // Secondhand (секондхенды) methods
     async getSecondhands(params = {}) {
         console.log('🏪 Getting secondhands with params:', params);
         const queryParams = new URLSearchParams();
-        
+
         if (params.city) queryParams.append('city', params.city);
         if (params.search) queryParams.append('search', params.search);
         if (params.is_active !== undefined) queryParams.append('is_active', params.is_active);
         if (params.skip !== undefined) queryParams.append('skip', params.skip);
         if (params.limit !== undefined) queryParams.append('limit', params.limit);
-        
+
         const queryString = queryParams.toString();
         const endpoint = queryString ? `/secondhand/?${queryString}` : '/secondhand/';
         return this.request(endpoint);
@@ -375,10 +369,10 @@ class ApiService {
     }
 
     isAuthenticated() {
-    return !!this.token;
+        return !!this.token;
     }
 
-    // 🔍 Поиск секонд-хендов
+    // 🔍 Поиск секонд-хендов (альтернативный метод)
     async searchSecondhand(params = {}) {
         const query = new URLSearchParams(params).toString();
         const endpoint = query ? `/secondhand/?${query}` : '/secondhand/';

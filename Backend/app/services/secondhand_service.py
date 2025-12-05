@@ -3,6 +3,7 @@ from sqlalchemy import and_, or_, func, select
 from typing import List, Optional, Tuple
 import logging
 import math
+from sqlalchemy.orm import Session
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, func

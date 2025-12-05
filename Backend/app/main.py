@@ -122,7 +122,7 @@ async def add_cors_headers_middleware(request: Request, call_next):
     return response
 
 # === СТАТИКА ===
-app.mount("/static", StaticFiles(directory="file_storage"), name="static")
+app.mount("/static", StaticFiles(directory="File_storage"), name="static")
 
 # === ГЛОБАЛЬНЫЕ ОБРАБОТЧИКИ ОШИБОК ===
 @app.exception_handler(FashionEchoException)
