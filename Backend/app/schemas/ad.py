@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator, Field, ConfigDict, ValidationInfo
+from pydantic import BaseModel, field_validator, Field, ConfigDict, ValidationInfo, field_serializer, model_validator
 from typing import Optional
 from datetime import datetime
 from enum import Enum
@@ -41,6 +41,7 @@ class AdBase(BaseModel):
 
 class AdCreate(AdBase):
     @field_validator('price')
+    @classmethod
     def validate_price(cls, v: Optional[float], info: ValidationInfo) -> Optional[float]:
         # Используем info.data.get() вместо info.get()
         if info.data and info.data.get('type') == AdType.SELL and v is None:
@@ -53,7 +54,7 @@ class AdUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=200)
     description: Optional[str] = Field(None, max_length=5000)
     price: Optional[float] = Field(None, ge=0)
-    condition: Optional[Condition] = None
+    condition: Optional[str] = Field(None, description="Состояние товара")
     main_category: Optional[str] = None
     sub_category: Optional[str] = None
     season: Optional[str] = None
@@ -63,11 +64,107 @@ class AdUpdate(BaseModel):
     location: Optional[str] = None
     is_negotiable: Optional[bool] = None
     brand: Optional[str] = None
-    status: Optional[AdStatus] = None
+    status: Optional[str] = Field(None, description="Статус объявления: active, inactive")
     images: Optional[list[str]] = Field(
         None, 
         description="Список путей к изображениям (например, ['media/ads/abc.jpg', 'media/ads/def.jpg'])"
     )
+    
+    @field_validator('condition', mode='before')
+    @classmethod
+    def validate_condition(cls, v):
+        """Валидация состояния товара"""
+        if v is not None and v != "":
+            valid_conditions = {c.value for c in Condition}
+            if v not in valid_conditions:
+                raise ValueError(f"Недопустимое состояние товара: {v}. Допустимые значения: {', '.join(valid_conditions)}")
+        return v
+    
+    @field_validator('status', mode='before')
+    @classmethod
+    def validate_status(cls, v):
+        """Валидация статуса объявления"""
+        if v is not None and v != "":
+            valid_statuses = {s.value for s in AdStatus}
+            if v not in valid_statuses:
+                raise ValueError(f"Недопустимый статус: {v}. Допустимые значения: {', '.join(valid_statuses)}")
+        return v
+    
+    @field_validator('title', mode='before')
+    @classmethod
+    def validate_title(cls, v):
+        """Валидация заголовка - пустая строка должна быть None"""
+        if v == "":
+            return None
+        return v
+    
+    @field_validator('images', mode='before')
+    @classmethod
+    def validate_images(cls, v):
+        """Валидация изображений - преобразуем объекты в строки ДО проверки типа"""
+        if v is None:
+            return None
+        if not isinstance(v, list):
+            raise ValueError("images должен быть списком")
+        
+        result = []
+        for idx, item in enumerate(v):
+            if item is None:
+                continue  # Пропускаем None значения
+            elif isinstance(item, str):
+                if item.strip():  # Пропускаем пустые строки
+                    result.append(item.strip())
+            elif isinstance(item, dict):
+                # Если это словарь, извлекаем file_path, url или path
+                file_path = item.get('file_path') or item.get('url') or item.get('path')
+                if file_path and isinstance(file_path, str) and file_path.strip():
+                    result.append(file_path.strip())
+                else:
+                    # Пытаемся найти любое строковое значение в объекте
+                    for key, value in item.items():
+                        if isinstance(value, str) and value.strip() and ('path' in key.lower() or 'url' in key.lower() or 'file' in key.lower()):
+                            result.append(value.strip())
+                            break
+                    else:
+                        # Если не нашли подходящее поле, пропускаем с предупреждением
+                        print(f"⚠️ Предупреждение: не удалось извлечь путь к изображению из объекта {idx}: {item}")
+            elif hasattr(item, 'file_path'):
+                # Если это объект с атрибутом file_path (например, AdImage)
+                file_path = getattr(item, 'file_path', None)
+                if file_path and isinstance(file_path, str) and file_path.strip():
+                    result.append(file_path.strip())
+            elif hasattr(item, 'url'):
+                # Если это объект с атрибутом url
+                url = getattr(item, 'url', None)
+                if url and isinstance(url, str) and url.strip():
+                    result.append(url.strip())
+            elif hasattr(item, '__dict__'):
+                # Если это объект с __dict__, пытаемся найти file_path или url
+                item_dict = item.__dict__
+                file_path = item_dict.get('file_path') or item_dict.get('url') or item_dict.get('path')
+                if file_path and isinstance(file_path, str) and file_path.strip():
+                    result.append(file_path.strip())
+                else:
+                    # Пытаемся преобразовать в строку
+                    str_value = str(item).strip()
+                    if str_value and str_value != '<object>':
+                        result.append(str_value)
+            elif hasattr(item, '__str__'):
+                # Если объект можно преобразовать в строку
+                str_value = str(item).strip()
+                if str_value:
+                    result.append(str_value)
+            else:
+                # Последняя попытка - преобразовать в строку
+                try:
+                    str_value = str(item).strip()
+                    if str_value:
+                        result.append(str_value)
+                except Exception as e:
+                    raise ValueError(f"Элемент images[{idx}] должен быть строкой или объектом с file_path, получен: {type(item).__name__}, ошибка: {e}")
+        
+        # Возвращаем пустой список вместо None, чтобы различать "не передано" и "передан пустой список"
+        return result
 
 class AdResponse(AdBase):
     id: int
@@ -95,6 +192,74 @@ class AdResponse(AdBase):
     is_favorite: Optional[bool] = None
     
     model_config = ConfigDict(from_attributes=True)
+    
+    @model_validator(mode='before')
+    @classmethod
+    def convert_images_before_validation(cls, data):
+        """Преобразуем AdImage объекты в строки ДО валидации, чтобы обойти SQLAlchemy relationship"""
+        # Если это уже словарь (из JSON), возвращаем как есть
+        if isinstance(data, dict):
+            return data
+        
+        # Если это SQLAlchemy объект, преобразуем images в список строк
+        if hasattr(data, 'images'):
+            try:
+                # Используем inspect для безопасного доступа к relationship
+                from sqlalchemy import inspect as sa_inspect
+                insp = sa_inspect(data)
+                
+                # Получаем значение relationship через inspect
+                images_list = []
+                if 'images' in insp.attrs:
+                    images_attr = insp.attrs['images']
+                    if images_attr.loaded_value is not None:
+                        images_list = images_attr.loaded_value
+                    else:
+                        # Если не загружено, пытаемся получить напрямую (но это может вызвать ошибку)
+                        try:
+                            images_list = list(data.images) if data.images else []
+                        except:
+                            images_list = []
+                else:
+                    # Если атрибут не найден в inspect, пробуем напрямую
+                    try:
+                        images_list = list(data.images) if data.images else []
+                    except:
+                        images_list = []
+                
+                # Преобразуем в пути к файлам
+                image_paths = []
+                for img in images_list:
+                    if isinstance(img, str):
+                        image_paths.append(img)
+                    elif hasattr(img, 'file_path'):
+                        image_paths.append(img.file_path)
+                    else:
+                        image_paths.append(str(img))
+                
+                # Устанавливаем напрямую в __dict__, минуя SQLAlchemy дескриптор
+                data.__dict__['images'] = image_paths
+            except Exception as e:
+                # Если не удалось получить изображения, устанавливаем пустой список
+                print(f"⚠️ Ошибка при преобразовании images: {e}")
+                data.__dict__['images'] = []
+        
+        return data
+    
+    @field_serializer('images')
+    def serialize_images(self, value, _info):
+        """Сериализуем изображения - преобразуем AdImage объекты в строки при сериализации"""
+        if not value:
+            return []
+        result = []
+        for img in value:
+            if isinstance(img, str):
+                result.append(img)
+            elif hasattr(img, 'file_path'):
+                result.append(img.file_path)
+            else:
+                result.append(str(img))
+        return result
 
 # Enum для сортировки
 class SortBy(str, Enum):
@@ -119,6 +284,7 @@ class AdStatusResponse(BaseModel):
 class Condition(str, Enum):
     """Состояние одежды"""
     NEW = "new"                # Новая с биркой
+    LIKE_NEW = "like_new"      # Как новое
     EXCELLENT = "excellent"    # Отличное состояние
     GOOD = "good"              # Хорошее состояние
     SATISFACTORY = "satisfactory" # Удовлетворительное
@@ -171,14 +337,17 @@ class AdSearch(BaseModel):
     is_negotiable: Optional[bool] = Field(None, description="Возможен торг")
     
     @field_validator('max_price')
-    def validate_price_range(cls, v, values):
+    @classmethod
+    def validate_price_range(cls, v: Optional[float], info: ValidationInfo) -> Optional[float]:
         """Валидация ценового диапазона"""
-        if v is not None and 'min_price' in values and values['min_price'] is not None:
-            if v < values['min_price']:
+        if v is not None and info.data and 'min_price' in info.data:
+            min_price = info.data.get('min_price')
+            if min_price is not None and v < min_price:
                 raise ValueError('max_price должен быть больше или равен min_price')
         return v
     
     @field_validator('main_categories', 'sub_categories', 'seasons', 'conditions', 'sizes', 'colors')
+    @classmethod
     def validate_list_fields(cls, v):
         """Валидация списков - удаляем пустые строки и дубликаты"""
         if v is not None:
@@ -189,6 +358,7 @@ class AdSearch(BaseModel):
         return v
     
     @field_validator('colors')
+    @classmethod
     def validate_colors(cls, v):
         """Валидация цветов"""
         valid_colors = {"black", "white", "gray", "red", "blue", "green", 
@@ -198,14 +368,6 @@ class AdSearch(BaseModel):
             invalid = [color for color in v if color.lower() not in valid_colors]
             if invalid:
                 raise ValueError(f"Недопустимые цвета: {invalid}")
-        return v
-    
-    # Валидаторы
-    @field_validator('max_price')
-    def validate_price_range(cls, v, values):
-        if v is not None and 'min_price' in values and values['min_price'] is not None:
-            if v < values['min_price']:
-                raise ValueError('max_price должен быть больше или равен min_price')
         return v
     
     # @field_validator('created_after', 'created_before')
@@ -218,29 +380,25 @@ class AdSearch(BaseModel):
     #             raise ValueError('Дата должна быть в формате YYYY-MM-DD')
     #     return v
     
-    def get_skip(self):
-        """Вычисляет offset для пагинации"""
-        return (self.page - 1) * self.per_page
+    def get_skip(self) -> int:
+        """Возвращает offset для пагинации"""
+        return self.skip
     
-    def get_limit(self):
+    def get_limit(self) -> int:
         """Возвращает limit для пагинации"""
-        return self.per_page
+        return self.limit
     
-    def get_sort_by(self):
+    def get_sort_by(self) -> list[str]:
         """Возвращает параметры сортировки"""
-        if self.sorting:
-            if self.sorting.sort:
-                return self.sorting.sort.get_sort_expressions()
-            elif self.sorting.sort_by:
-                # Упрощенная сортировка
-                sort_mapping = {
-                    SortBy.NEWEST: "created_at DESC",
-                    SortBy.OLDEST: "created_at ASC",
-                    SortBy.PRICE_ASC: "price ASC",
-                    SortBy.PRICE_DESC: "price DESC",
-                    SortBy.POPULAR: "((view_count * 0.5) + (favorite_count * 0.5)) DESC",
-                }
-                return [sort_mapping.get(self.sorting.sort_by, "created_at DESC")]
+        sort_mapping = {
+            SortBy.NEWEST: "created_at DESC",
+            SortBy.OLDEST: "created_at ASC",
+            SortBy.PRICE_ASC: "price ASC",
+            SortBy.PRICE_DESC: "price DESC",
+            SortBy.POPULAR: "((view_count * 0.5) + (favorite_count * 0.5)) DESC",
+        }
+        if self.sort_by:
+            return [sort_mapping.get(self.sort_by, "created_at DESC")]
         
         # Сортировка по умолчанию
         return ["created_at DESC"]

@@ -232,7 +232,11 @@ class AdService:
         
         # Извлекаем данные об изображениях
         update_dict = ad_data.model_dump(exclude_unset=True)
-        new_image_paths = update_dict.pop('images', None)  # Убираем images из общего обновления
+        # Проверяем, было ли поле images передано явно
+        if 'images' in update_dict:
+            new_image_paths = update_dict.pop('images')  # Убираем images из общего обновления
+        else:
+            new_image_paths = None  # Поле не было передано - не обновляем изображения
         
         # Обновляем основные поля
         for field, value in update_dict.items():
@@ -242,32 +246,56 @@ class AdService:
         ad.updated_at = datetime.now(timezone.utc)
         
         # Обработка изображений, если переданы новые
-        if new_image_paths is not None:
-            # Удаляем старые изображения (опционально)
+        # None означает "не обновлять изображения", список с путями - "обновить список изображений"
+        if new_image_paths is not None and isinstance(new_image_paths, list):
+            # Получаем текущие пути к изображениям
+            current_paths = {img.file_path for img in ad.images}
+            new_paths_set = {path for path in new_image_paths if path and isinstance(path, str)}
+            
+            # Удаляем изображения, которых нет в новом списке
+            images_to_delete = []
             for old_image in ad.images:
-                # Удаляем файлы с диска
-                file_path = Path(old_image.file_path)
-                if file_path.exists():
-                    try:
-                        await aiofiles.os.remove(file_path)
-                    except Exception as e:
-                        print(f"Error removing old image {file_path}: {e}")
+                if old_image.file_path not in new_paths_set:
+                    images_to_delete.append(old_image)
+                    # Удаляем файл с диска только если это не системный путь
+                    file_path = Path(old_image.file_path)
+                    if file_path.exists() and not str(file_path).startswith('media/'):
+                        try:
+                            await aiofiles.os.remove(file_path)
+                        except Exception as e:
+                            print(f"Error removing old image {file_path}: {e}")
             
-            # Удаляем записи из БД
-            await db.execute(
-                delete(AdImage).where(AdImage.ad_id == ad_id)
-            )
+            # Удаляем записи из БД для удаленных изображений
+            if images_to_delete:
+                delete_ids = [img.id for img in images_to_delete]
+                await db.execute(
+                    delete(AdImage).where(AdImage.id.in_(delete_ids))
+                )
             
-            # Добавляем новые изображения
+            # Добавляем новые изображения (которых еще нет в БД)
             for order, image_path in enumerate(new_image_paths):
                 if image_path and isinstance(image_path, str):
-                    image = AdImage(
-                        ad_id=ad_id,
-                        file_path=image_path,
-                        order=order,
-                        is_main=(order == 0)  # Первое изображение - главное
-                    )
-                    db.add(image)
+                    # Проверяем, не существует ли уже такое изображение
+                    existing_image = next((img for img in ad.images if img.file_path == image_path), None)
+                    if not existing_image:
+                        # Извлекаем имя файла из пути
+                        filename = Path(image_path).name
+                        image = AdImage(
+                            ad_id=ad_id,
+                            file_path=image_path,
+                            filename=filename,
+                            order=order,
+                            is_main=(order == 0)  # Первое изображение - главное
+                        )
+                        db.add(image)
+            
+            # Обновляем порядок и главное изображение для всех существующих изображений
+            for order, image_path in enumerate(new_image_paths):
+                if image_path and isinstance(image_path, str):
+                    existing_image = next((img for img in ad.images if img.file_path == image_path), None)
+                    if existing_image:
+                        existing_image.order = order
+                        existing_image.is_main = (order == 0)
 
         update_data = ad_data.model_dump(exclude_unset=True)
     
@@ -496,8 +524,11 @@ class AdService:
         if not ad:
             return None
         
+        # Извлекаем имя файла из пути
+        filename = Path(image_path).name
+        
         # Создаем запись изображения
-        image = AdImage(ad_id=ad_id, file_path=image_path)
+        image = AdImage(ad_id=ad_id, file_path=image_path, filename=filename)
         db.add(image)
         await db.commit()
         await db.refresh(image)
@@ -520,7 +551,9 @@ class AdService:
         
         images = []
         for path in image_paths:
-            image = AdImage(ad_id=ad_id, file_path=path)
+            # Извлекаем имя файла из пути
+            filename = Path(path).name
+            image = AdImage(ad_id=ad_id, file_path=path, filename=filename)
             db.add(image)
             images.append(image)
         
@@ -634,4 +667,204 @@ class AdService:
             "created_at": ad.created_at,
             "updated_at": ad.updated_at,
             "status": ad.status if ad.status else "unknown"
+        }
+    
+    # ---------- Поиск и фильтрация ----------
+    
+    @staticmethod
+    async def advanced_search(db: AsyncSession, search_data: AdSearch) -> dict[str, Any]:
+        """Расширенный поиск объявлений с использованием AdSearch схемы"""
+        stmt = select(Ad).options(
+            selectinload(Ad.images),
+            selectinload(Ad.user)
+        )
+        
+        # Фильтр по статусу
+        if search_data.status and search_data.status != AdStatus.ALL:
+            stmt = stmt.where(Ad.status == search_data.status)
+        elif not search_data.status or search_data.status == AdStatus.ALL:
+            # По умолчанию показываем только активные
+            stmt = stmt.where(Ad.status == AdStatus.ACTIVE)
+        
+        # Фильтр по типу объявления
+        if search_data.ad_type:
+            stmt = stmt.where(Ad.type == search_data.ad_type)
+        
+        # Фильтр по основным категориям
+        if search_data.main_categories:
+            stmt = stmt.where(Ad.main_category.in_(search_data.main_categories))
+        
+        # Фильтр по подкатегориям
+        if search_data.sub_categories:
+            stmt = stmt.where(Ad.sub_category.in_(search_data.sub_categories))
+        
+        # Фильтр по сезонам
+        if search_data.seasons:
+            stmt = stmt.where(Ad.season.in_(search_data.seasons))
+        
+        # Фильтр по состоянию товара
+        if search_data.conditions:
+            stmt = stmt.where(Ad.condition.in_(search_data.conditions))
+        
+        # Фильтр по размерам
+        if search_data.sizes:
+            size_conditions = [Ad.size.ilike(f"%{size}%") for size in search_data.sizes]
+            stmt = stmt.where(or_(*size_conditions))
+        
+        # Фильтр по цветам
+        if search_data.colors:
+            color_conditions = []
+            for color in search_data.colors:
+                color_conditions.append(cast(Ad.colors, String).ilike(f'%"{color.lower()}"%'))
+            if color_conditions:
+                stmt = stmt.where(or_(*color_conditions))
+        
+        # Ценовой диапазон
+        if search_data.min_price is not None:
+            stmt = stmt.where(Ad.price >= search_data.min_price)
+        if search_data.max_price is not None:
+            stmt = stmt.where(Ad.price <= search_data.max_price)
+        
+        # Текстовый поиск
+        if search_data.query:
+            query_lower = search_data.query.lower()
+            stmt = stmt.where(
+                or_(
+                    Ad.title.ilike(f"%{query_lower}%"),
+                    Ad.description.ilike(f"%{query_lower}%"),
+                    Ad.tags.ilike(f"%{query_lower}%")
+                )
+            )
+        
+        # Дополнительные фильтры
+        if search_data.user_id:
+            stmt = stmt.where(Ad.user_id == search_data.user_id)
+        
+        if search_data.has_images is not None:
+            if search_data.has_images:
+                stmt = stmt.where(Ad.images.any())
+        
+        # Сортировка
+        sort_by = search_data.sort_by or SortBy.NEWEST
+        if sort_by == SortBy.NEWEST:
+            stmt = stmt.order_by(desc(Ad.created_at))
+        elif sort_by == SortBy.OLDEST:
+            stmt = stmt.order_by(asc(Ad.created_at))
+        elif sort_by == SortBy.PRICE_ASC:
+            stmt = stmt.order_by(asc(Ad.price))
+        elif sort_by == SortBy.PRICE_DESC:
+            stmt = stmt.order_by(desc(Ad.price))
+        elif sort_by == SortBy.POPULAR:
+            stmt = stmt.order_by(desc(Ad.view_count + Ad.favorite_count))
+        
+        # Подсчет общего количества (до пагинации)
+        count_stmt = select(func.count(Ad.id)).select_from(stmt.subquery())
+        total_result = await db.execute(count_stmt)
+        total = total_result.scalar() or 0
+        
+        # Пагинация
+        skip = search_data.skip or 0
+        limit = search_data.limit or 50
+        stmt = stmt.offset(skip).limit(limit)
+        
+        # Выполняем запрос
+        result = await db.execute(stmt)
+        ads = result.scalars().all()
+        
+        return {
+            "ads": ads,
+            "total": total,
+            "skip": skip,
+            "limit": limit
+        }
+    
+    @staticmethod
+    async def search_ads(
+        db: AsyncSession,
+        query: Optional[str] = None,
+        min_price: Optional[float] = None,
+        max_price: Optional[float] = None,
+        type: Optional[str] = None,
+        category: Optional[str] = None,
+        location: Optional[str] = None,
+        sort_by: Optional[str] = "newest",
+        skip: int = 0,
+        limit: int = 100
+    ) -> list[Ad]:
+        """Простой поиск объявлений (для обратной совместимости)"""
+        return await AdService.get_ads(
+            db=db,
+            skip=skip,
+            limit=limit,
+            search=query,
+            min_price=min_price,
+            max_price=max_price,
+            type=type,
+            main_category=category,
+            sort=sort_by
+        )
+    
+    @staticmethod
+    async def get_filter_options(db: AsyncSession) -> dict[str, Any]:
+        """Получить все доступные опции для фильтров"""
+        # Основные категории
+        main_categories_stmt = select(func.distinct(Ad.main_category)).where(
+            Ad.main_category.isnot(None),
+            Ad.status == AdStatus.ACTIVE
+        )
+        main_categories_result = await db.execute(main_categories_stmt)
+        main_categories = [row[0] for row in main_categories_result.all() if row[0]]
+        
+        # Подкатегории
+        sub_categories_stmt = select(func.distinct(Ad.sub_category)).where(
+            Ad.sub_category.isnot(None),
+            Ad.status == AdStatus.ACTIVE
+        )
+        sub_categories_result = await db.execute(sub_categories_stmt)
+        sub_categories = [row[0] for row in sub_categories_result.all() if row[0]]
+        
+        # Сезоны
+        seasons_stmt = select(func.distinct(Ad.season)).where(
+            Ad.season.isnot(None),
+            Ad.status == AdStatus.ACTIVE
+        )
+        seasons_result = await db.execute(seasons_stmt)
+        seasons = [row[0] for row in seasons_result.all() if row[0]]
+        
+        # Состояния
+        conditions_stmt = select(func.distinct(Ad.condition)).where(
+            Ad.condition.isnot(None),
+            Ad.status == AdStatus.ACTIVE
+        )
+        conditions_result = await db.execute(conditions_stmt)
+        conditions = [row[0] for row in conditions_result.all() if row[0]]
+        
+        # Размеры
+        sizes_stmt = select(func.distinct(Ad.size)).where(
+            Ad.size.isnot(None),
+            Ad.size != '',
+            Ad.status == AdStatus.ACTIVE
+        )
+        sizes_result = await db.execute(sizes_stmt)
+        sizes = [row[0] for row in sizes_result.all() if row[0]]
+        
+        # Цвета (извлекаем из JSON)
+        colors_stmt = select(Ad.colors).where(
+            Ad.colors.isnot(None),
+            Ad.status == AdStatus.ACTIVE
+        )
+        colors_result = await db.execute(colors_stmt)
+        all_colors = set()
+        for row in colors_result.all():
+            if row[0] and isinstance(row[0], list):
+                all_colors.update(row[0])
+        colors = sorted(list(all_colors))
+        
+        return {
+            "main_categories": main_categories,
+            "sub_categories": sub_categories,
+            "seasons": seasons,
+            "conditions": conditions,
+            "sizes": sizes,
+            "colors": colors
         }

@@ -140,12 +140,16 @@ async def fashion_echo_exception_handler(request: Request, exc: FashionEchoExcep
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = exc.errors()
+    print(f"❌ Ошибка валидации для {request.method} {request.url.path}:")
+    for error in errors:
+        print(f"   - Поле: {error.get('loc', [])}, Ошибка: {error.get('msg', '')}, Тип: {error.get('type', '')}")
     response = JSONResponse(
         status_code=422,
         content={
             "error": "validation_error",
             "message": "Ошибка валидации данных",
-            "details": exc.errors(),
+            "details": errors,
         },
     )
     origin = request.headers.get("origin")

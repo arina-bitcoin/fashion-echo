@@ -33,6 +33,7 @@ from Backend.app.schemas.ad import (
     AdType,
     AdSearch,
     Condition,
+    SortBy,
     FavoriteResponse,
     ImageUploadResponse,
     ImageOrderUpdate
@@ -115,6 +116,9 @@ async def get_ad(
         is_fav = await AdService.is_favorite(db, ad_id, current_user.id)
         setattr(ad, 'is_favorite', is_fav)
     
+    # Pydantic будет обрабатывать преобразование images через model_validator
+    # Не трогаем SQLAlchemy объекты напрямую
+    
     return ad
 
 
@@ -126,18 +130,14 @@ async def search_ads(
     db: AsyncSession = Depends(get_db),
 ):
     """Расширенный поиск объявлений"""
-    return await AdService.search_ads(
-        db=db,
-        query=search_data.query,
-        min_price=search_data.min_price,
-        max_price=search_data.max_price,
-        type=search_data.type,
-        category=search_data.category,
-        location=search_data.location,
-        sort_by=search_data.sort_by or "newest",
-        skip=skip,
-        limit=limit
-    )
+    # Обновляем skip и limit из query параметров, если они переданы
+    if skip > 0:
+        search_data.skip = skip
+    if limit != 100:
+        search_data.limit = limit
+    
+    result = await AdService.advanced_search(db, search_data)
+    return result["ads"]
 
 
 @router.post("/search/advanced", response_model=dict[str, Any])
@@ -195,12 +195,20 @@ async def quick_search(
     GET /ads/search/quick?q=куртка&category=men&price_min=1000&sort=price_asc&page=1
     """
     # Преобразуем в объект AdSearch
+    # Преобразуем строку sort в SortBy enum
+    sort_by_enum = None
+    if sort:
+        try:
+            sort_by_enum = SortBy(sort)
+        except ValueError:
+            sort_by_enum = SortBy.NEWEST
+    
     search_data = AdSearch(
         query=q,
         main_categories=[category] if category else None,
         min_price=price_min,
         max_price=price_max,
-        sort_by=sort,
+        sort_by=sort_by_enum or SortBy.NEWEST,
         skip=(page - 1) * per_page,
         limit=per_page
     )
@@ -280,7 +288,7 @@ async def create_ad(
     """Создать новое объявление"""
     
     print(f"📤 Создание объявления: {ad_data.title}")
-    print(f"📤 Данные объявления: {ad_data.dict()}")
+    print(f"📤 Данные объявления: {ad_data.model_dump()}")
     
     ad = await AdService.create_ad(db, ad_data, current_user.id)
     
@@ -295,7 +303,7 @@ async def update_ad(
     current_user: User = Depends(get_current_user),
 ):
     """Обновить объявление (только владелец)"""
-    print(f"📤 Данные для обновления объявления {ad_id}: {ad_data.dict()}")
+    print(f"📤 Данные для обновления объявления {ad_id}: {ad_data.model_dump()}")
     print(f"📤 Тип данных: {type(ad_data)}")
     
     ad = await AdService.update_ad(db, ad_id, current_user.id, ad_data)
