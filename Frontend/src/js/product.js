@@ -337,11 +337,11 @@ class ProductPage {
         // Убираем начальный слэш
         let cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
         
-        // Если путь содержит "media/ads/", оставляем как есть
         // Если путь содержит "file_storage/", убираем этот префикс
         if (cleanPath.startsWith('file_storage/')) {
             cleanPath = cleanPath.replace('file_storage/', '');
         }
+        // Путь теперь должен быть в формате images/ads/filename
         
         return `${baseUrl}${cleanPath}`;
     }

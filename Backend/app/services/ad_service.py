@@ -21,6 +21,21 @@ from Backend.app.schemas.ad import (
 
 class AdService:
     
+    @staticmethod
+    def _process_ad_images(ad):
+        """Преобразует изображения объявления в список строк"""
+        if hasattr(ad, 'images') and ad.images:
+            # Создаем временный атрибут для сериализации
+            setattr(ad, '_image_urls', [img.file_path if hasattr(img, 'file_path') else str(img) for img in ad.images])
+        else:
+            setattr(ad, '_image_urls', [])
+        return ad
+    
+    @staticmethod
+    def _process_ads_images(ads):
+        """Преобразует изображения для списка объявлений"""
+        return [AdService._process_ad_images(ad) for ad in ads]
+    
     # ---------- Базовые CRUD операции ----------
     
     @staticmethod
@@ -169,7 +184,10 @@ class AdService:
         stmt = stmt.offset(skip).limit(limit)
         
         result = await db.execute(stmt)
-        return result.scalars().all()
+        ads = result.scalars().all()
+        
+        # Преобразуем изображения в строки
+        return AdService._process_ads_images(ads)
     
     @staticmethod
     async def get_ad(
@@ -184,7 +202,13 @@ class AdService:
         ).where(Ad.id == ad_id)
         
         result = await db.execute(stmt)
-        return result.scalar_one_or_none()
+        ad = result.scalar_one_or_none()
+        
+        # Преобразуем изображения в строки
+        if ad:
+            ad = AdService._process_ad_images(ad)
+        
+        return ad
     
     @staticmethod
     async def create_ad(
@@ -232,11 +256,7 @@ class AdService:
         
         # Извлекаем данные об изображениях
         update_dict = ad_data.model_dump(exclude_unset=True)
-        # Проверяем, было ли поле images передано явно
-        if 'images' in update_dict:
-            new_image_paths = update_dict.pop('images')  # Убираем images из общего обновления
-        else:
-            new_image_paths = None  # Поле не было передано - не обновляем изображения
+        new_image_paths = update_dict.pop('images', None)  # Убираем images из общего обновления
         
         # Обновляем основные поля
         for field, value in update_dict.items():
@@ -246,56 +266,32 @@ class AdService:
         ad.updated_at = datetime.now(timezone.utc)
         
         # Обработка изображений, если переданы новые
-        # None означает "не обновлять изображения", список с путями - "обновить список изображений"
-        if new_image_paths is not None and isinstance(new_image_paths, list):
-            # Получаем текущие пути к изображениям
-            current_paths = {img.file_path for img in ad.images}
-            new_paths_set = {path for path in new_image_paths if path and isinstance(path, str)}
-            
-            # Удаляем изображения, которых нет в новом списке
-            images_to_delete = []
+        if new_image_paths is not None:
+            # Удаляем старые изображения (опционально)
             for old_image in ad.images:
-                if old_image.file_path not in new_paths_set:
-                    images_to_delete.append(old_image)
-                    # Удаляем файл с диска только если это не системный путь
-                    file_path = Path(old_image.file_path)
-                    if file_path.exists() and not str(file_path).startswith('media/'):
-                        try:
-                            await aiofiles.os.remove(file_path)
-                        except Exception as e:
-                            print(f"Error removing old image {file_path}: {e}")
+                # Удаляем файлы с диска
+                file_path = Path(old_image.file_path)
+                if file_path.exists():
+                    try:
+                        await aiofiles.os.remove(file_path)
+                    except Exception as e:
+                        print(f"Error removing old image {file_path}: {e}")
             
-            # Удаляем записи из БД для удаленных изображений
-            if images_to_delete:
-                delete_ids = [img.id for img in images_to_delete]
-                await db.execute(
-                    delete(AdImage).where(AdImage.id.in_(delete_ids))
-                )
+            # Удаляем записи из БД
+            await db.execute(
+                delete(AdImage).where(AdImage.ad_id == ad_id)
+            )
             
-            # Добавляем новые изображения (которых еще нет в БД)
+            # Добавляем новые изображения
             for order, image_path in enumerate(new_image_paths):
                 if image_path and isinstance(image_path, str):
-                    # Проверяем, не существует ли уже такое изображение
-                    existing_image = next((img for img in ad.images if img.file_path == image_path), None)
-                    if not existing_image:
-                        # Извлекаем имя файла из пути
-                        filename = Path(image_path).name
-                        image = AdImage(
-                            ad_id=ad_id,
-                            file_path=image_path,
-                            filename=filename,
-                            order=order,
-                            is_main=(order == 0)  # Первое изображение - главное
-                        )
-                        db.add(image)
-            
-            # Обновляем порядок и главное изображение для всех существующих изображений
-            for order, image_path in enumerate(new_image_paths):
-                if image_path and isinstance(image_path, str):
-                    existing_image = next((img for img in ad.images if img.file_path == image_path), None)
-                    if existing_image:
-                        existing_image.order = order
-                        existing_image.is_main = (order == 0)
+                    image = AdImage(
+                        ad_id=ad_id,
+                        file_path=image_path,
+                        order=order,
+                        is_main=(order == 0)  # Первое изображение - главное
+                    )
+                    db.add(image)
 
         update_data = ad_data.model_dump(exclude_unset=True)
     
@@ -395,7 +391,10 @@ class AdService:
         stmt = stmt.offset(skip).limit(limit).order_by(desc(Ad.created_at))
         
         result = await db.execute(stmt)
-        return result.scalars().all()
+        ads = result.scalars().all()
+        
+        # Преобразуем изображения в строки
+        return AdService._process_ads_images(ads)
     
     @staticmethod
     async def toggle_ad_status(
@@ -496,7 +495,10 @@ class AdService:
         ).offset(skip).limit(limit).order_by(desc(FavoriteAd.created_at))
         
         result = await db.execute(stmt)
-        return result.scalars().all()
+        ads = result.scalars().all()
+        
+        # Преобразуем изображения в строки
+        return AdService._process_ads_images(ads)
     
     @staticmethod
     async def is_favorite(db: AsyncSession, ad_id: int, user_id: int) -> bool:
@@ -524,11 +526,8 @@ class AdService:
         if not ad:
             return None
         
-        # Извлекаем имя файла из пути
-        filename = Path(image_path).name
-        
         # Создаем запись изображения
-        image = AdImage(ad_id=ad_id, file_path=image_path, filename=filename)
+        image = AdImage(ad_id=ad_id, file_path=image_path)
         db.add(image)
         await db.commit()
         await db.refresh(image)
@@ -551,9 +550,7 @@ class AdService:
         
         images = []
         for path in image_paths:
-            # Извлекаем имя файла из пути
-            filename = Path(path).name
-            image = AdImage(ad_id=ad_id, file_path=path, filename=filename)
+            image = AdImage(ad_id=ad_id, file_path=path)
             db.add(image)
             images.append(image)
         
@@ -770,6 +767,9 @@ class AdService:
         # Выполняем запрос
         result = await db.execute(stmt)
         ads = result.scalars().all()
+        
+        # Преобразуем изображения в строки
+        ads = AdService._process_ads_images(ads)
         
         return {
             "ads": ads,

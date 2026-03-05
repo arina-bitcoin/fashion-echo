@@ -138,6 +138,7 @@ class CreateAdPage {
         if (cleanPath.startsWith('file_storage/')) {
             cleanPath = cleanPath.replace('file_storage/', '');
         }
+        // Путь уже должен быть в формате images/ads/filename
         return `${baseUrl}${cleanPath}`;
     }
 
@@ -372,19 +373,8 @@ class CreateAdPage {
             }
         }
 
-        // Разделяем изображения на существующие (уже загруженные) и новые (файлы для загрузки)
-        const existingImages = this.uploadedImages.filter(img => img.file_path && !img.file);
-        const newImages = this.uploadedImages.filter(img => img.file);
-        
-        // Для обновления: отправляем пути к существующим изображениям
-        // Для создания: отправляем пустой массив (изображения загрузим отдельно)
-        if (this.editMode) {
-            // При редактировании отправляем все пути к изображениям (и существующие, и новые будут загружены отдельно)
-            formData.images = [...new Set(this.uploadedImages.map(img => img.file_path).filter(path => path))];
-        } else {
-            // При создании не отправляем изображения в основном запросе
-            formData.images = [];
-        }
+        // Добавляем изображения - берем только пути к файлам, убираем дубликаты
+        formData.images = [...new Set(this.uploadedImages.map(img => img.file_path))];
         
         try {
             if (this.elements.submitBtn) {
@@ -400,17 +390,19 @@ class CreateAdPage {
                 console.log('✏️ Обновление объявления:', this.editId, formData);
                 result = await window.apiService.updateAd(this.editId, formData);
                 adId = this.editId;
+                alert('Объявление успешно обновлено!', adId);
             } else {
                 // Создание нового объявления
                 console.log('➕ Создание объявления:', formData);
                 result = await window.apiService.createAd(formData);
                 adId = result.id;
+                alert('Объявление успешно создано!', adId);
             }
 
-            // Загружаем только новые изображения (файлы) к объявлению
-            if (newImages.length > 0) {
-                console.log(`📤 Загрузка ${newImages.length} новых изображений к объявлению ${adId}`);
-                await this.uploadNewImagesToAd(adId, newImages);
+            // ТЕПЕРЬ загружаем изображения к объявлению
+            if (this.uploadedImages.length > 0) {
+                console.log(`📤 Прикрепление ${this.uploadedImages.length} изображений к объявлению ${adId}`);
+                await this.attachImagesToAd(adId);
             }
 
             alert(this.editMode ? 'Объявление успешно обновлено!' : 'Объявление успешно создано!');
@@ -425,48 +417,6 @@ class CreateAdPage {
                 this.elements.submitBtn.disabled = false;
                 this.elements.submitBtn.textContent = this.editMode ? 'СОХРАНИТЬ ИЗМЕНЕНИЯ' : 'СОЗДАТЬ ОБЪЯВЛЕНИЕ';
             }
-        }
-    }
-
-    async uploadNewImagesToAd(adId, newImages) {
-        if (!adId || !newImages || newImages.length === 0) return;
-        
-        console.log(`📤 Загрузка ${newImages.length} новых изображений к объявлению ${adId}`);
-        
-        // Создаем FormData с массивом файлов
-        const formData = new FormData();
-        newImages.forEach(imageData => {
-            if (imageData.file) {
-                formData.append('files', imageData.file);
-            }
-        });
-        
-        if (formData.getAll('files').length === 0) {
-            console.log('⚠️ Нет файлов для загрузки');
-            return;
-        }
-        
-        try {
-            // Используем эндпоинт для загрузки нескольких изображений к объявлению
-            const response = await fetch(`http://localhost:8000/api/ads/${adId}/images`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${window.apiService.token}`,
-                },
-                body: formData
-            });
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
-            }
-            
-            const result = await response.json();
-            console.log('✅ Изображения загружены:', result);
-            
-        } catch (error) {
-            console.error('❌ Ошибка загрузки изображений:', error);
-            throw error;
         }
     }
 

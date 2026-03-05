@@ -116,9 +116,6 @@ async def get_ad(
         is_fav = await AdService.is_favorite(db, ad_id, current_user.id)
         setattr(ad, 'is_favorite', is_fav)
     
-    # Pydantic будет обрабатывать преобразование images через model_validator
-    # Не трогаем SQLAlchemy объекты напрямую
-    
     return ad
 
 
@@ -493,7 +490,7 @@ async def upload_image(
     validate_image_file(file)
     
     # Сохраняем файл
-    upload_dir = Path("media") / "ads"
+    upload_dir = Path("file_storage") / "images" / "ads"
     await aiofiles.os.makedirs(upload_dir, exist_ok=True)
     
     # Генерируем уникальное имя
@@ -510,7 +507,7 @@ async def upload_image(
         await buffer.write(content)
     
     # Возвращаем информацию о файле
-    relative_path = f"media/ads/{new_name}"
+    relative_path = f"images/ads/{new_name}"
     
     return ImageUploadResponse(
         file_path=str(dest_path),
@@ -541,7 +538,7 @@ async def upload_multiple_images(
         validate_image_file(file)
         
         # Сохраняем файл
-        upload_dir = Path("media") / "ads"
+        upload_dir = Path("file_storage") / "images" / "ads"
         await aiofiles.os.makedirs(upload_dir, exist_ok=True)
         
         ext = Path(file.filename).suffix.lower() or ".jpg"
@@ -565,7 +562,7 @@ async def upload_multiple_images(
         )
         
         if image:
-            relative_path = f"media/ads/{new_name}"
+            relative_path = f"images/ads/{new_name}"
             uploaded_images.append(ImageUploadResponse(
                 file_path=str(dest_path),
                 filename=new_name,

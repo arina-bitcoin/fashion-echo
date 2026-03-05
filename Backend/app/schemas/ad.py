@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator, Field, ConfigDict, ValidationInfo, field_serializer, model_validator
+from pydantic import BaseModel, field_validator, Field, ConfigDict, ValidationInfo, model_serializer, computed_field
 from typing import Optional
 from datetime import datetime
 from enum import Enum
@@ -67,10 +67,10 @@ class AdUpdate(BaseModel):
     status: Optional[str] = Field(None, description="Статус объявления: active, inactive")
     images: Optional[list[str]] = Field(
         None, 
-        description="Список путей к изображениям (например, ['media/ads/abc.jpg', 'media/ads/def.jpg'])"
+        description="Список путей к изображениям (например, ['images/ads/abc.jpg', 'images/ads/def.jpg'])"
     )
     
-    @field_validator('condition', mode='before')
+    @field_validator('condition')
     @classmethod
     def validate_condition(cls, v):
         """Валидация состояния товара"""
@@ -80,7 +80,7 @@ class AdUpdate(BaseModel):
                 raise ValueError(f"Недопустимое состояние товара: {v}. Допустимые значения: {', '.join(valid_conditions)}")
         return v
     
-    @field_validator('status', mode='before')
+    @field_validator('status')
     @classmethod
     def validate_status(cls, v):
         """Валидация статуса объявления"""
@@ -90,7 +90,7 @@ class AdUpdate(BaseModel):
                 raise ValueError(f"Недопустимый статус: {v}. Допустимые значения: {', '.join(valid_statuses)}")
         return v
     
-    @field_validator('title', mode='before')
+    @field_validator('title')
     @classmethod
     def validate_title(cls, v):
         """Валидация заголовка - пустая строка должна быть None"""
@@ -98,73 +98,53 @@ class AdUpdate(BaseModel):
             return None
         return v
     
-    @field_validator('images', mode='before')
+    @field_validator('images')
     @classmethod
     def validate_images(cls, v):
-        """Валидация изображений - преобразуем объекты в строки ДО проверки типа"""
-        if v is None:
-            return None
-        if not isinstance(v, list):
-            raise ValueError("images должен быть списком")
-        
-        result = []
-        for idx, item in enumerate(v):
-            if item is None:
-                continue  # Пропускаем None значения
-            elif isinstance(item, str):
-                if item.strip():  # Пропускаем пустые строки
-                    result.append(item.strip())
-            elif isinstance(item, dict):
-                # Если это словарь, извлекаем file_path, url или path
-                file_path = item.get('file_path') or item.get('url') or item.get('path')
-                if file_path and isinstance(file_path, str) and file_path.strip():
-                    result.append(file_path.strip())
-                else:
-                    # Пытаемся найти любое строковое значение в объекте
-                    for key, value in item.items():
-                        if isinstance(value, str) and value.strip() and ('path' in key.lower() or 'url' in key.lower() or 'file' in key.lower()):
-                            result.append(value.strip())
-                            break
+        """Валидация изображений - преобразуем объекты в строки"""
+        if v is not None:
+            if not isinstance(v, list):
+                raise ValueError("images должен быть списком")
+            result = []
+            for idx, item in enumerate(v):
+                if item is None:
+                    continue  # Пропускаем None значения
+                elif isinstance(item, str):
+                    if item.strip():  # Пропускаем пустые строки
+                        result.append(item.strip())
+                elif isinstance(item, dict):
+                    # Если это словарь, извлекаем file_path, url или path
+                    file_path = item.get('file_path') or item.get('url') or item.get('path')
+                    if file_path and isinstance(file_path, str) and file_path.strip():
+                        result.append(file_path.strip())
                     else:
-                        # Если не нашли подходящее поле, пропускаем с предупреждением
-                        print(f"⚠️ Предупреждение: не удалось извлечь путь к изображению из объекта {idx}: {item}")
-            elif hasattr(item, 'file_path'):
-                # Если это объект с атрибутом file_path (например, AdImage)
-                file_path = getattr(item, 'file_path', None)
-                if file_path and isinstance(file_path, str) and file_path.strip():
-                    result.append(file_path.strip())
-            elif hasattr(item, 'url'):
-                # Если это объект с атрибутом url
-                url = getattr(item, 'url', None)
-                if url and isinstance(url, str) and url.strip():
-                    result.append(url.strip())
-            elif hasattr(item, '__dict__'):
-                # Если это объект с __dict__, пытаемся найти file_path или url
-                item_dict = item.__dict__
-                file_path = item_dict.get('file_path') or item_dict.get('url') or item_dict.get('path')
-                if file_path and isinstance(file_path, str) and file_path.strip():
-                    result.append(file_path.strip())
-                else:
-                    # Пытаемся преобразовать в строку
-                    str_value = str(item).strip()
-                    if str_value and str_value != '<object>':
-                        result.append(str_value)
-            elif hasattr(item, '__str__'):
-                # Если объект можно преобразовать в строку
-                str_value = str(item).strip()
-                if str_value:
-                    result.append(str_value)
-            else:
-                # Последняя попытка - преобразовать в строку
-                try:
+                        # Пытаемся найти любое строковое значение в объекте
+                        for key, value in item.items():
+                            if isinstance(value, str) and value.strip() and ('path' in key.lower() or 'url' in key.lower() or 'file' in key.lower()):
+                                result.append(value.strip())
+                                break
+                        else:
+                            # Если не нашли подходящее поле, пропускаем с предупреждением
+                            print(f"⚠️ Предупреждение: не удалось извлечь путь к изображению из объекта {idx}: {item}")
+                elif hasattr(item, 'file_path'):
+                    # Если это объект с атрибутом file_path (например, AdImage)
+                    file_path = getattr(item, 'file_path', None)
+                    if file_path and isinstance(file_path, str) and file_path.strip():
+                        result.append(file_path.strip())
+                elif hasattr(item, 'url'):
+                    # Если это объект с атрибутом url
+                    url = getattr(item, 'url', None)
+                    if url and isinstance(url, str) and url.strip():
+                        result.append(url.strip())
+                elif hasattr(item, '__str__'):
+                    # Если объект можно преобразовать в строку
                     str_value = str(item).strip()
                     if str_value:
                         result.append(str_value)
-                except Exception as e:
-                    raise ValueError(f"Элемент images[{idx}] должен быть строкой или объектом с file_path, получен: {type(item).__name__}, ошибка: {e}")
-        
-        # Возвращаем пустой список вместо None, чтобы различать "не передано" и "передан пустой список"
-        return result
+                else:
+                    raise ValueError(f"Элемент images[{idx}] должен быть строкой или объектом с file_path, получен: {type(item).__name__}")
+            return result if result else None  # Возвращаем None если список пустой
+        return v
 
 class AdResponse(AdBase):
     id: int
@@ -187,79 +167,18 @@ class AdResponse(AdBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     
-    images: Optional[list[str]] = Field(default_factory=list, description="URL-ы изображений")
     user: Optional[UserResponseSimple] = None
     is_favorite: Optional[bool] = None
     
     model_config = ConfigDict(from_attributes=True)
     
-    @model_validator(mode='before')
-    @classmethod
-    def convert_images_before_validation(cls, data):
-        """Преобразуем AdImage объекты в строки ДО валидации, чтобы обойти SQLAlchemy relationship"""
-        # Если это уже словарь (из JSON), возвращаем как есть
-        if isinstance(data, dict):
-            return data
-        
-        # Если это SQLAlchemy объект, преобразуем images в список строк
-        if hasattr(data, 'images'):
-            try:
-                # Используем inspect для безопасного доступа к relationship
-                from sqlalchemy import inspect as sa_inspect
-                insp = sa_inspect(data)
-                
-                # Получаем значение relationship через inspect
-                images_list = []
-                if 'images' in insp.attrs:
-                    images_attr = insp.attrs['images']
-                    if images_attr.loaded_value is not None:
-                        images_list = images_attr.loaded_value
-                    else:
-                        # Если не загружено, пытаемся получить напрямую (но это может вызвать ошибку)
-                        try:
-                            images_list = list(data.images) if data.images else []
-                        except:
-                            images_list = []
-                else:
-                    # Если атрибут не найден в inspect, пробуем напрямую
-                    try:
-                        images_list = list(data.images) if data.images else []
-                    except:
-                        images_list = []
-                
-                # Преобразуем в пути к файлам
-                image_paths = []
-                for img in images_list:
-                    if isinstance(img, str):
-                        image_paths.append(img)
-                    elif hasattr(img, 'file_path'):
-                        image_paths.append(img.file_path)
-                    else:
-                        image_paths.append(str(img))
-                
-                # Устанавливаем напрямую в __dict__, минуя SQLAlchemy дескриптор
-                data.__dict__['images'] = image_paths
-            except Exception as e:
-                # Если не удалось получить изображения, устанавливаем пустой список
-                print(f"⚠️ Ошибка при преобразовании images: {e}")
-                data.__dict__['images'] = []
-        
-        return data
-    
-    @field_serializer('images')
-    def serialize_images(self, value, _info):
-        """Сериализуем изображения - преобразуем AdImage объекты в строки при сериализации"""
-        if not value:
-            return []
-        result = []
-        for img in value:
-            if isinstance(img, str):
-                result.append(img)
-            elif hasattr(img, 'file_path'):
-                result.append(img.file_path)
-            else:
-                result.append(str(img))
-        return result
+    @computed_field
+    @property
+    def images(self) -> list[str]:
+        """Возвращает список URL изображений"""
+        if hasattr(self, '_image_urls'):
+            return self._image_urls
+        return []
 
 # Enum для сортировки
 class SortBy(str, Enum):

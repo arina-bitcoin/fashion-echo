@@ -192,8 +192,14 @@ async def get_user_ads(
     result = await db.execute(stmt)
     ads = list(result.scalars().all())
 
-    # Pydantic будет обрабатывать преобразование images через model_validator
-    # Не трогаем SQLAlchemy объекты напрямую
+    # Преобразуем images в URL
+    for ad in ads:
+        if hasattr(ad, 'images') and ad.images:
+            # Преобразуем AdImage объекты в URL строки
+            ad.images = [f"http://localhost:8000/static/{img.file_path}" for img in ad.images]
+        else:
+            ad.images = []
+
     return ads
 
 

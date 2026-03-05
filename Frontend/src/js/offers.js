@@ -408,6 +408,7 @@ class OffersPage {
         if (cleanPath.startsWith('file_storage/')) {
             cleanPath = cleanPath.replace('file_storage/', '');
         }
+        // Путь теперь должен быть в формате images/ads/filename
         
         return `${baseUrl}${cleanPath}`;
     }

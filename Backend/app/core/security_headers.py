@@ -7,7 +7,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 CSP = os.getenv(
     "CSP",
-    "default-src 'self'; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https://fastapi.tiangolo.com; object-src 'none'; frame-ancestors 'none'; base-uri 'self'"
 )
 USE_HSTS = os.getenv("USE_HSTS", "0") in ("1", "true", "True")
 
