@@ -1,0 +1,51 @@
+# Test Dockerfile с дополнительными инструментами для тестирования
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+# Устанавливаем системные зависимости для тестирования
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libffi-dev \
+    gcc \
+    curl \
+    git \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Копируем и устанавливаем зависимости
+COPY Backend/requirements.txt Backend/requirements-dev.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt
+
+# Дополнительные инструменты для тестирования
+RUN pip install --no-cache-dir \
+    pytest-xdist \
+    pytest-mock \
+    pytest-benchmark \
+    pytest-html \
+    factory-boy \
+    responses \
+    freezegun
+
+# Копируем код приложения
+COPY Backend/ ./Backend/
+COPY tests/ ./tests/
+
+# Создаем непривилегированного пользователя
+RUN groupadd -r testuser && useradd -r -g testuser testuser
+
+# Создаем необходимые директории для тестов
+RUN mkdir -p /app/test-results /app/coverage-reports /app/test-media && \
+    chown -R testuser:testuser /app
+
+# Переключаемся на непривилегированного пользователя
+USER testuser
+
+# Команда по умолчанию для запуска тестов
+CMD ["pytest", "-v", "--cov=Backend/app", "--cov-report=html:/app/coverage-reports/", "--cov-report=term-missing"]

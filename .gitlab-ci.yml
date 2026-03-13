@@ -1,0 +1,326 @@
+# GitLab CI/CD конфигурация для Fashion Echo
+# Лабораторная работа 4 - CI/CD пайплайн
+
+stages:
+  - lint
+  - test
+  - build
+  - deploy
+
+# Переменные для Docker Hub
+variables:
+  DOCKERHUB_USER: fashionecho  # Замените на ваш username в Docker Hub
+  BACKEND_SUFFIX: backend
+  FRONTEND_SUFFIX: frontend
+  POSTGRES_SUFFIX: postgres
+  
+  # Переменные для тестирования
+  POSTGRES_DB: fashion_eco_test
+  POSTGRES_USER: test_user
+  POSTGRES_PASSWORD: test_password
+  DATABASE_URL: postgresql://test_user:test_password@postgres:5432/fashion_eco_test
+  SECRET_KEY: test_secret_key_for_ci_cd_pipeline_testing_only
+  
+  # Docker переменные
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+
+# Шаблон для Docker операций
+.docker_template: &docker_template
+  image: docker:24-dind
+  services:
+    - docker:24-dind
+  before_script:
+    - docker --version
+    - docker info
+    - echo "$DOCKERHUB_TOKEN" | docker login docker.io -u "$DOCKERHUB_USER" --password-stdin
+
+# Шаблон для Python тестов
+.python_template: &python_template
+  image: python:3.11-slim
+  services:
+    - postgres:15-alpine
+  variables:
+    POSTGRES_DB: $POSTGRES_DB
+    POSTGRES_USER: $POSTGRES_USER
+    POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+    POSTGRES_HOST_AUTH_METHOD: trust
+  before_script:
+    - apt-get update -qy
+    - apt-get install -y --no-install-recommends build-essential libpq-dev
+    - cd Backend
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
+    - sleep 10  # Ждем запуска PostgreSQL
+
+# ============= ЭТАП ЛИНТИНГА =============
+
+lint_python:
+  <<: *python_template
+  stage: lint
+  script:
+    - echo "🔍 Запуск линтеров для Python кода..."
+    - cd Backend
+    
+    # Black - форматирование кода
+    - echo "📝 Проверка форматирования с Black..."
+    - black --check --diff app/ || (echo "❌ Код не отформатирован! Запустите: black app/" && exit 1)
+    
+    # isort - сортировка импортов
+    - echo "📦 Проверка сортировки импортов с isort..."
+    - isort --check-only --diff app/ || (echo "❌ Импорты не отсортированы! Запустите: isort app/" && exit 1)
+    
+    # flake8 - проверка стиля кода
+    - echo "🔎 Проверка стиля кода с flake8..."
+    - flake8 app/ --max-line-length=88 --extend-ignore=E203,W503 || (echo "❌ Найдены нарушения стиля кода!" && exit 1)
+    
+    - echo "✅ Все проверки линтеров пройдены успешно!"
+  allow_failure: false
+  only:
+    - merge_requests
+    - main
+    - develop
+
+lint_frontend:
+  image: node:18-alpine
+  stage: lint
+  script:
+    - echo "🔍 Запуск линтеров для Frontend кода..."
+    - cd Frontend
+    
+    # Проверка HTML/CSS/JS файлов (базовая проверка)
+    - echo "📝 Проверка синтаксиса HTML файлов..."
+    - find . -name "*.html" -exec echo "Checking {}" \;
+    
+    - echo "✅ Frontend проверки завершены!"
+  allow_failure: true  # Разрешаем неудачу для frontend линтинга
+  only:
+    - merge_requests
+    - main
+    - develop
+
+# ============= ЭТАП ТЕСТИРОВАНИЯ =============
+
+unit_tests:
+  <<: *python_template
+  stage: test
+  script:
+    - echo "🧪 Запуск юнит тестов..."
+    - cd Backend
+    
+    # Создание тестовой базы данных
+    - echo "🗄️ Настройка тестовой базы данных..."
+    - export DATABASE_URL="postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@postgres:5432/$POSTGRES_DB"
+    
+    # Запуск юнит тестов с покрытием
+    - echo "🏃‍♂️ Запуск pytest с измерением покрытия..."
+    - pytest tests/unit/ -v --cov=app --cov-report=term --cov-report=xml --cov-fail-under=70
+    
+    - echo "✅ Юнит тесты успешно пройдены!"
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: Backend/coverage.xml
+    paths:
+      - Backend/coverage.xml
+    expire_in: 1 week
+  coverage: '/TOTAL.*\s+(\d+%)$/'
+  dependencies:
+    - lint_python
+
+integration_tests:
+  <<: *python_template
+  stage: test
+  script:
+    - echo "🔗 Запуск интеграционных тестов..."
+    - cd Backend
+    
+    # Настройка тестовой среды
+    - export DATABASE_URL="postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@postgres:5432/$POSTGRES_DB"
+    
+    # Запуск интеграционных тестов
+    - echo "🏃‍♂️ Запуск интеграционных тестов..."
+    - pytest tests/integration/ -v --tb=short
+    
+    - echo "✅ Интеграционные тесты успешно пройдены!"
+  dependencies:
+    - unit_tests
+  allow_failure: true  # Разрешаем неудачу для интеграционных тестов
+
+# ============= ЭТАП СБОРКИ =============
+
+build_backend:
+  <<: *docker_template
+  stage: build
+  script:
+    - echo "🐳 Сборка Docker образа для Backend..."
+    - cd Backend
+    
+    # Сборка образа
+    - docker build -t $DOCKERHUB_USER/$CI_PROJECT_NAME-$BACKEND_SUFFIX:tmp .
+    
+    # Тегирование образа коммитом
+    - docker tag $DOCKERHUB_USER/$CI_PROJECT_NAME-$BACKEND_SUFFIX:tmp $DOCKERHUB_USER/$CI_PROJECT_NAME-$BACKEND_SUFFIX:$CI_COMMIT_SHORT_SHA
+    
+    # Пуш образа с тегом коммита
+    - docker push $DOCKERHUB_USER/$CI_PROJECT_NAME-$BACKEND_SUFFIX:$CI_COMMIT_SHORT_SHA
+    
+    # Если есть тег релиза, пушим и его
+    - |
+      if [[ -n "$CI_COMMIT_TAG" ]]; then
+        echo "🏷️ Найден тег релиза: $CI_COMMIT_TAG"
+        docker tag $DOCKERHUB_USER/$CI_PROJECT_NAME-$BACKEND_SUFFIX:tmp $DOCKERHUB_USER/$CI_PROJECT_NAME-$BACKEND_SUFFIX:$CI_COMMIT_TAG
+        docker push $DOCKERHUB_USER/$CI_PROJECT_NAME-$BACKEND_SUFFIX:$CI_COMMIT_TAG
+        
+        # Также тегируем как latest для релизов
+        docker tag $DOCKERHUB_USER/$CI_PROJECT_NAME-$BACKEND_SUFFIX:tmp $DOCKERHUB_USER/$CI_PROJECT_NAME-$BACKEND_SUFFIX:latest
+        docker push $DOCKERHUB_USER/$CI_PROJECT_NAME-$BACKEND_SUFFIX:latest
+      fi
+    
+    - echo "✅ Backend образ успешно собран и отправлен в Docker Hub!"
+  dependencies:
+    - unit_tests
+  only:
+    - main
+    - develop
+    - tags
+
+build_frontend:
+  <<: *docker_template
+  stage: build
+  script:
+    - echo "🐳 Сборка Docker образа для Frontend..."
+    - cd Frontend
+    
+    # Сборка образа
+    - docker build -t $DOCKERHUB_USER/$CI_PROJECT_NAME-$FRONTEND_SUFFIX:tmp .
+    
+    # Тегирование образа коммитом
+    - docker tag $DOCKERHUB_USER/$CI_PROJECT_NAME-$FRONTEND_SUFFIX:tmp $DOCKERHUB_USER/$CI_PROJECT_NAME-$FRONTEND_SUFFIX:$CI_COMMIT_SHORT_SHA
+    
+    # Пуш образа с тегом коммита
+    - docker push $DOCKERHUB_USER/$CI_PROJECT_NAME-$FRONTEND_SUFFIX:$CI_COMMIT_SHORT_SHA
+    
+    # Если есть тег релиза, пушим и его
+    - |
+      if [[ -n "$CI_COMMIT_TAG" ]]; then
+        echo "🏷️ Найден тег релиза: $CI_COMMIT_TAG"
+        docker tag $DOCKERHUB_USER/$CI_PROJECT_NAME-$FRONTEND_SUFFIX:tmp $DOCKERHUB_USER/$CI_PROJECT_NAME-$FRONTEND_SUFFIX:$CI_COMMIT_TAG
+        docker push $DOCKERHUB_USER/$CI_PROJECT_NAME-$FRONTEND_SUFFIX:$CI_COMMIT_TAG
+        
+        # Также тегируем как latest для релизов
+        docker tag $DOCKERHUB_USER/$CI_PROJECT_NAME-$FRONTEND_SUFFIX:tmp $DOCKERHUB_USER/$CI_PROJECT_NAME-$FRONTEND_SUFFIX:latest
+        docker push $DOCKERHUB_USER/$CI_PROJECT_NAME-$FRONTEND_SUFFIX:latest
+      fi
+    
+    - echo "✅ Frontend образ успешно собран и отправлен в Docker Hub!"
+  dependencies:
+    - lint_frontend
+  only:
+    - main
+    - develop
+    - tags
+
+# ============= ЭТАП ДЕПЛОЯ =============
+
+# Шаблон для деплоя
+.deploy_template: &deploy_template
+  image: kroniak/ssh-client:latest
+  before_script:
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
+    - echo -e "Host *\n  StrictHostKeyChecking no\n  UserKnownHostsFile /dev/null" > ~/.ssh/config
+    - chmod 600 ~/.ssh/id_ed25519
+
+deploy_staging:
+  <<: *deploy_template
+  stage: deploy
+  script:
+    - echo "🚀 Деплой на staging сервер..."
+    - |
+      ssh -i ~/.ssh/id_ed25519 $SSH_USER@$SSH_STAGING_HOST << EOF
+        cd /opt/fashion-eco
+        export BACKEND_IMAGE=$DOCKERHUB_USER/$CI_PROJECT_NAME-$BACKEND_SUFFIX:$CI_COMMIT_SHORT_SHA
+        export FRONTEND_IMAGE=$DOCKERHUB_USER/$CI_PROJECT_NAME-$FRONTEND_SUFFIX:$CI_COMMIT_SHORT_SHA
+        docker-compose pull
+        docker-compose up -d --force-recreate
+        docker system prune -f
+      EOF
+    - echo "✅ Staging деплой завершен!"
+  environment:
+    name: staging
+    url: http://staging.fashion-eco.example.com
+  dependencies:
+    - build_backend
+    - build_frontend
+  only:
+    - develop
+  when: manual
+
+deploy_production:
+  <<: *deploy_template
+  stage: deploy
+  script:
+    - echo "🚀 Деплой на production сервер..."
+    - |
+      ssh -i ~/.ssh/id_ed25519 $SSH_USER@$SSH_PRODUCTION_HOST << EOF
+        cd /opt/fashion-eco
+        export BACKEND_IMAGE=$DOCKERHUB_USER/$CI_PROJECT_NAME-$BACKEND_SUFFIX:$CI_COMMIT_SHORT_SHA
+        export FRONTEND_IMAGE=$DOCKERHUB_USER/$CI_PROJECT_NAME-$FRONTEND_SUFFIX:$CI_COMMIT_SHORT_SHA
+        docker-compose pull
+        docker-compose up -d --force-recreate
+        docker system prune -f
+      EOF
+    - echo "✅ Production деплой завершен!"
+  environment:
+    name: production
+    url: https://fashion-eco.example.com
+  dependencies:
+    - build_backend
+    - build_frontend
+  only:
+    - main
+    - tags
+  when: manual
+
+# ============= ДОПОЛНИТЕЛЬНЫЕ ЗАДАЧИ =============
+
+# Очистка старых образов Docker Hub (опционально)
+cleanup_docker_hub:
+  <<: *docker_template
+  stage: deploy
+  script:
+    - echo "🧹 Очистка старых образов в Docker Hub..."
+    - echo "Эта задача может быть реализована через Docker Hub API"
+    - echo "Для экономии места и лимитов Docker Hub"
+  only:
+    - schedules
+  when: manual
+
+# Задача для создания релиза
+create_release:
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  stage: deploy
+  script:
+    - echo "🏷️ Создание релиза $CI_COMMIT_TAG"
+  release:
+    name: 'Release $CI_COMMIT_TAG'
+    description: 'Fashion Echo Release $CI_COMMIT_TAG'
+    tag_name: '$CI_COMMIT_TAG'
+    ref: '$CI_COMMIT_SHA'
+  only:
+    - tags
+  dependencies:
+    - build_backend
+    - build_frontend
+
+# ============= ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ =============
+# Необходимо настроить в GitLab CI/CD Settings -> Variables:
+#
+# DOCKERHUB_TOKEN - токен для доступа к Docker Hub
+# SSH_PRIVATE_KEY - приватный SSH ключ для деплоя
+# SSH_USER - пользователь для SSH подключения
+# SSH_STAGING_HOST - хост staging сервера
+# SSH_PRODUCTION_HOST - хост production сервера

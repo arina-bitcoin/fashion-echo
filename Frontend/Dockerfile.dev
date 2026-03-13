@@ -1,0 +1,34 @@
+# Development Dockerfile с live reload
+FROM node:18-alpine AS development
+
+WORKDIR /app
+
+# Устанавливаем зависимости для разработки
+RUN apk add --no-cache \
+    curl \
+    wget
+
+# Копируем исходные файлы
+COPY src/ ./src/
+
+# Устанавливаем live-server для hot reload
+RUN npm install -g live-server
+
+# Создаем непривилегированного пользователя
+RUN addgroup -g 1001 -S appuser && \
+    adduser -S -D -H -u 1001 -h /app -s /bin/sh -G appuser -g appuser appuser
+
+# Устанавливаем права доступа
+RUN chown -R appuser:appuser /app
+
+EXPOSE 80
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1
+
+# Переключаемся на непривилегированного пользователя
+USER appuser
+
+# Запускаем live-server с hot reload
+CMD ["live-server", "--host=0.0.0.0", "--port=80", "--no-browser", "--wait=1000", "./src"]

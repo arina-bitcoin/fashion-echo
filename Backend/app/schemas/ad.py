@@ -167,7 +167,7 @@ class AdResponse(AdBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     
-    user: Optional[UserResponseSimple] = None
+    user: Optional["UserResponseSimple"] = None
     is_favorite: Optional[bool] = None
     
     model_config = ConfigDict(from_attributes=True)

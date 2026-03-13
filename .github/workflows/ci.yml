@@ -1,0 +1,175 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: fashion_eco_test
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('Backend/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        cd Backend
+        pip install -r requirements.txt -r requirements-dev.txt
+
+    - name: Create .env file
+      run: |
+        cp .env.example .env
+        sed -i 's/fashion_user/test_user/g' .env
+        sed -i 's/fashion_password_change_me/test_password/g' .env
+        sed -i 's/fashion_eco/fashion_eco_test/g' .env
+        sed -i 's/localhost/127.0.0.1/g' .env
+
+    - name: Run linting
+      run: |
+        cd Backend
+        flake8 app/ --max-line-length=88 --extend-ignore=E203,W503
+        black --check app/
+        isort --check-only app/
+        mypy app/
+
+    - name: Run tests
+      run: |
+        cd Backend
+        pytest --cov=app --cov-report=xml --cov-report=html -v
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/fashion_eco_test
+        REDIS_URL: redis://localhost:6379/0
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./Backend/coverage.xml
+        flags: backend
+        name: backend-coverage
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Docker Hub
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Build and test Docker images
+      run: |
+        docker-compose -f docker-compose.yml build
+        
+    - name: Run integration tests
+      run: |
+        cp .env.example .env
+        docker-compose up -d postgres redis
+        sleep 30
+        docker-compose run --rm backend pytest tests/integration/
+        docker-compose down -v
+
+    - name: Push to Docker Hub
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        docker tag fashion-eco-backend:latest ${{ secrets.DOCKER_USERNAME }}/fashion-eco-backend:latest
+        docker tag fashion-eco-backend:latest ${{ secrets.DOCKER_USERNAME }}/fashion-eco-backend:${{ github.sha }}
+        docker tag fashion-eco-frontend:latest ${{ secrets.DOCKER_USERNAME }}/fashion-eco-frontend:latest
+        docker tag fashion-eco-frontend:latest ${{ secrets.DOCKER_USERNAME }}/fashion-eco-frontend:${{ github.sha }}
+        
+        docker push ${{ secrets.DOCKER_USERNAME }}/fashion-eco-backend:latest
+        docker push ${{ secrets.DOCKER_USERNAME }}/fashion-eco-backend:${{ github.sha }}
+        docker push ${{ secrets.DOCKER_USERNAME }}/fashion-eco-frontend:latest
+        docker push ${{ secrets.DOCKER_USERNAME }}/fashion-eco-frontend:${{ github.sha }}
+
+  security:
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'fashion-eco-backend:latest'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [test, build, security]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy to staging
+      run: |
+        echo "Deploying to staging environment..."
+        # Здесь будет код для деплоя на staging сервер
+        
+    - name: Run smoke tests
+      run: |
+        echo "Running smoke tests..."
+        # Здесь будут smoke tests для проверки деплоя

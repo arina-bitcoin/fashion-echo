@@ -1,0 +1,120 @@
+version: "3.9"
+
+# Конфигурация для тестирования
+networks:
+  test-network:
+    driver: bridge
+
+services:
+  # Тестовая база данных
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: fashion-eco-postgres-test
+    environment:
+      POSTGRES_DB: fashion_eco_test
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+    networks:
+      - test-network
+    tmpfs:
+      - /var/lib/postgresql/data  # Используем tmpfs для скорости
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d fashion_eco_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  # Backend для тестирования
+  backend-test:
+    build:
+      context: .
+      dockerfile: Backend/Dockerfile.test
+    container_name: fashion-eco-backend-test
+    environment:
+      - ENVIRONMENT=testing
+      - DEBUG=true
+      - DATABASE_URL=postgresql://test_user:test_password@postgres-test:5432/fashion_eco_test
+      - SECRET_KEY=test-secret-key-for-testing-only
+    networks:
+      - test-network
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    volumes:
+      - ./Backend:/app/Backend:ro
+      - /app/Backend/__pycache__  # Исключаем pycache из bind mount
+    command: >
+      sh -c "
+        echo 'Waiting for database...' &&
+        sleep 5 &&
+        echo 'Running database migrations...' &&
+        alembic upgrade head &&
+        echo 'Running tests...' &&
+        pytest -v --cov=app --cov-report=term-missing --cov-report=html --cov-fail-under=80
+      "
+
+  # Интеграционные тесты
+  integration-test:
+    build:
+      context: .
+      dockerfile: Backend/Dockerfile.test
+    container_name: fashion-eco-integration-test
+    environment:
+      - ENVIRONMENT=testing
+      - DATABASE_URL=postgresql://test_user:test_password@postgres-test:5432/fashion_eco_test
+      - SECRET_KEY=test-secret-key-for-testing-only
+      - BACKEND_URL=http://backend-test:8000
+    networks:
+      - test-network
+    depends_on:
+      - backend-test
+    volumes:
+      - ./tests:/app/tests:ro
+    command: >
+      sh -c "
+        echo 'Waiting for backend...' &&
+        sleep 10 &&
+        echo 'Running integration tests...' &&
+        pytest tests/integration/ -v
+      "
+    profiles:
+      - integration
+
+  # Нагрузочное тестирование
+  load-test:
+    image: locustio/locust:latest
+    container_name: fashion-eco-load-test
+    networks:
+      - test-network
+    depends_on:
+      - backend-test
+    volumes:
+      - ./tests/load:/mnt/locust:ro
+    command: >
+      -f /mnt/locust/locustfile.py 
+      --host=http://backend-test:8000 
+      --users=10 
+      --spawn-rate=2 
+      --run-time=60s 
+      --headless
+    profiles:
+      - load-test
+
+  # Тестирование безопасности
+  security-test:
+    image: owasp/zap2docker-stable:latest
+    container_name: fashion-eco-security-test
+    networks:
+      - test-network
+    depends_on:
+      - backend-test
+    volumes:
+      - ./tests/security:/zap/wrk:rw
+    command: >
+      zap-baseline.py 
+      -t http://backend-test:8000 
+      -J security-report.json 
+      -r security-report.html
+    profiles:
+      - security-test

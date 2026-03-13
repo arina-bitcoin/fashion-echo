@@ -50,13 +50,13 @@ env/
 # # Если генерируешь версии и не хочешь их коммитить:
 # #migrations/versions/
 
-# # ---- Конфиги и секреты ----
-# .env
-# *.env
-# .env.*
-# .env.local
-# *.secret
-# *.key
+# ---- Конфиги и секреты ----
+.env
+*.env
+.env.*
+.env.local
+*.secret
+*.key
 
 # # ---- Разное ----
 # # Логи uvicorn / gunicorn

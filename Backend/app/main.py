@@ -122,7 +122,7 @@ async def add_cors_headers_middleware(request: Request, call_next):
     return response
 
 # === СТАТИКА ===
-app.mount("/static", StaticFiles(directory="file_storage"), name="static")
+app.mount("/static", StaticFiles(directory="File_storage"), name="static")
 
 # === ГЛОБАЛЬНЫЕ ОБРАБОТЧИКИ ОШИБОК ===
 @app.exception_handler(FashionEchoException)
@@ -193,3 +193,30 @@ app.include_router(api_router, prefix="/api")
 @app.get("/")
 async def root():
     return {"message": "Fashion Echo API with SQLite"}
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint для Docker health check и мониторинга"""
+    try:
+        # Проверяем подключение к базе данных
+        from Backend.app.core.database import engine
+        from sqlalchemy import text
+        async with engine.begin() as conn:
+            await conn.execute(text("SELECT 1"))
+        
+        return {
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "service": "Fashion Echo API",
+            "version": "1.0.0",
+            "database": "connected"
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy", 
+            "timestamp": datetime.utcnow().isoformat(),
+            "service": "Fashion Echo API",
+            "version": "1.0.0",
+            "database": "disconnected",
+            "error": str(e)
+        }
